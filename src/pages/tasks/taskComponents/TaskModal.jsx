@@ -16,7 +16,10 @@ const TaskModal = ({ open, onClose, onSubmit, initialValues }) => {
     form
       .validateFields()
       .then((values) => {
-        onSubmit(values)
+        onSubmit({
+          ...values,
+          completed: false
+        })
         form.resetFields()
       })
       .catch((info) => {
@@ -31,16 +34,16 @@ const TaskModal = ({ open, onClose, onSubmit, initialValues }) => {
 
   return (
     <Modal
-      title={initialValues ? 'Tahrirlash' : 'Yangi vazifa'}
+      title={initialValues ? 'Edit' : 'New task'}
       open={open}
       onOk={handleOk}
       onCancel={handleCancel}
-      okText={initialValues ? 'Saqlash' : 'Qo‘shish'}
+      okText={initialValues ? 'Save' : 'Add'}
     >
       <Form form={form} layout='vertical' name='taskForm'>
         <Form.Item
           name='title'
-          label='Vazifa nomi'
+          label='Task name'
           rules={[{ required: true, message: 'Iltimos, nom kiriting' }]}
         >
           <Input />
