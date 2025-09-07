@@ -1,3 +1,4 @@
+import { BiTask } from 'react-icons/bi'
 import {
   BarChartOutlined,
   CalendarOutlined,
@@ -6,7 +7,7 @@ import {
   DashboardOutlined,
   InfoCircleOutlined,
   MenuOutlined,
-  MoreOutlined,
+  // MoreOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
 import React, { useState } from 'react'
@@ -33,6 +34,15 @@ const Sidebar = () => {
       label: (
         <Link onClick={() => setVisible(false)} to='/todays-tasks'>
           Today's tasks
+        </Link>
+      ),
+    },
+    {
+      id: '6',
+      icon: <BiTask />,
+      label: (
+        <Link onClick={() => setVisible(false)} to='/challenges'>
+          Challenges
         </Link>
       ),
     },

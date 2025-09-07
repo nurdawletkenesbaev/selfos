@@ -21,41 +21,56 @@ import { onAuthStateChanged } from 'firebase/auth'
 import ForgotPassword from './auth/pages/ForgotPassword'
 import Loading from './pages/Loading'
 import { auth } from './firebase/firebase'
+import ChallengeDetail from './pages/challenges/components/challengeDetail'
+import CreateChallenge from './pages/challenges/components/createChallenge'
+import Challenges from './pages/challenges/challenges'
 
 const App = () => {
-  const [user, setUser] = useState(null)
+  const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser)
+    // faqat bitta marta auth kuzatamiz
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid) // 🔑 user uid
+      } else {
+        setUserId(null)
+      }
       setLoading(false)
     })
 
     return () => unsubscribe()
   }, [])
 
-  if (loading) return <Loading />
+  // 🔽 bu qismlar renderda
+  if (loading) {
+    return <Loading />
+  }
+
+  if (!userId) {
+    <SignUp />
+  }
 
   return (
     <Router>
       <Routes>
         <Route
           path='/signup'
-          element={!user ? <SignUp /> : <Navigate to='/' />}
+          element={!userId ? <SignUp /> : <Navigate to='/' />}
         />
         <Route
           path='/signin'
-          element={!user ? <SignIn /> : <Navigate to='/' />}
+          element={!userId ? <SignIn /> : <Navigate to='/' />}
         />
         <Route
           path='/forgotpassword'
-          element={!user ? <ForgotPassword /> : <Navigate to='/' />}
+          element={!userId ? <ForgotPassword /> : <Navigate to='/' />}
         />
 
         <Route
           path='/'
-          element={user ? <MainLayout /> : <Navigate to='/signup' />}
+          element={userId ? <MainLayout /> : <Navigate to='/signup' />}
         >
           <Route path='/home' element={<Home />} />
           <Route path='/todays-tasks' element={<TodaysTasks />} />
@@ -65,6 +80,17 @@ const App = () => {
           <Route path='/goals' element={<Goals />} />
           <Route path='/about-app' element={<AboutApp />} />
           <Route path='/settings' element={<Settings />} />
+
+          {/* Challenges qismi */}
+          <Route path='/challenges' element={<Challenges userId={userId} />} />
+          <Route
+            path='/challenges/create'
+            element={<CreateChallenge userId={userId} />}
+          />
+          <Route
+            path='/challenges/:challengeId'
+            element={<ChallengeDetail userId={userId} />}
+          />
         </Route>
       </Routes>
     </Router>
