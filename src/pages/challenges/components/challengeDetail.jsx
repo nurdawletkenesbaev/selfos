@@ -74,9 +74,9 @@ function ChallengeDetail({ userId }) {
   }
 
   // 🔹 Fetch tasks
-  const fetchTasks = async () => {
+  const fetchTasks = async (withLoading = true) => {
     if (!userId || !challengeId) return
-    setLoading(true)
+    if (withLoading) setLoading(true)
     try {
       const q = query(
         collection(db, `users/${userId}/challenges/${challengeId}/tasks`),
@@ -89,7 +89,7 @@ function ChallengeDetail({ userId }) {
       console.error(err)
       message.error('Tasklarni yuklashda xatolik!')
     }
-    setLoading(false)
+    if (withLoading) setLoading(false)
   }
 
   useEffect(() => {
@@ -107,13 +107,11 @@ function ChallengeDetail({ userId }) {
   }, {})
 
   // 🔹 Create/Edit task
-  // 🔹 Create/Edit task
   const handleOk = async () => {
     try {
       const values = await form.validateFields()
-
+  
       if (editTask) {
-        // Faqat bitta tanlangan taskni yangilash
         await updateDoc(
           doc(
             db,
@@ -128,13 +126,27 @@ function ChallengeDetail({ userId }) {
             updatedAt: Timestamp.now(),
           }
         )
+        // Optimistik update
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === editTask.id
+              ? {
+                  ...t,
+                  taskName: values.taskName,
+                  type: values.type,
+                  reminder: values.reminder
+                    ? { seconds: values.reminder.unix() }
+                    : null,
+                }
+              : t
+          )
+        )
         message.success('Task yangilandi!')
       } else {
-        // Yangidan task(lar) yaratish
         const startDay = values.startDay.toDate()
         const endDay = values.endDay.toDate()
         const activeDays = values.activeDays || []
-
+  
         let current = new Date(startDay)
         while (current <= endDay) {
           if (activeDays.includes(current.getDay())) {
@@ -156,12 +168,12 @@ function ChallengeDetail({ userId }) {
           current.setDate(current.getDate() + 1)
         }
         message.success('Task(lar) yaratildi!')
+        fetchTasks(false) // 🔹 yangi tasklarni olish
       }
-
+  
       setOpenModal(false)
       form.resetFields()
       setEditTask(null)
-      fetchTasks()
     } catch (err) {
       console.error(err)
       message.error('Xatolik yuz berdi!')
@@ -202,8 +214,9 @@ function ChallengeDetail({ userId }) {
               `users/${userId}/challenges/${challengeId}/tasks/${task.id}`
             )
           )
+          // Optimistik update
+          setTasks((prev) => prev.filter((t) => t.id !== task.id))
           message.success('Task o‘chirildi!')
-          fetchTasks()
         } catch (err) {
           console.error(err)
           message.error('Xatolik yuz berdi!')
@@ -216,11 +229,14 @@ function ChallengeDetail({ userId }) {
     try {
       await updateDoc(
         doc(db, `users/${userId}/challenges/${challengeId}/tasks/${task.id}`),
-        {
-          completed: !task.completed,
-        }
+        { completed: !task.completed }
       )
-      fetchTasks()
+      // Optimistik update
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id ? { ...t, completed: !task.completed } : t
+        )
+      )
     } catch (err) {
       console.error(err)
       message.error('Completed holatini yangilashda xatolik!')
