@@ -24,10 +24,12 @@ import { auth } from './firebase/firebase'
 import ChallengeDetail from './pages/challenges/components/challengeDetail'
 import CreateChallenge from './pages/challenges/components/createChallenge'
 import Challenges from './pages/challenges/challenges'
+import { useAuth } from './firebase/AuthContext'
 
 const App = () => {
   const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(true)
+  const { currentUser } = useAuth()
 
   useEffect(() => {
     // faqat bitta marta auth kuzatamiz
@@ -49,7 +51,7 @@ const App = () => {
   }
 
   if (!userId) {
-    <SignUp />
+    ;<SignUp />
   }
 
   return (
@@ -73,7 +75,10 @@ const App = () => {
           element={userId ? <MainLayout /> : <Navigate to='/signup' />}
         >
           <Route path='/home' element={<Home />} />
-          <Route path='/todays-tasks' element={<TodaysTasks />} />
+          <Route
+            path='/todays-tasks'
+            element={<TodaysTasks userId={currentUser?.uid} />}
+          />
           <Route path='/pomodoro-timer' element={<Pomodoro />} />
           <Route path='/history' element={<History />} />
           <Route path='/statistics' element={<Statistics />} />
