@@ -24,6 +24,7 @@ import {
   Select,
   Checkbox,
   message,
+  Spin,
 } from 'antd'
 import { CgMathPlus } from 'react-icons/cg'
 import { BiEditAlt } from 'react-icons/bi'
@@ -51,6 +52,7 @@ function ChallengeDetail({ userId }) {
   const [challenge, setChallenge] = useState(null)
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingTaskId, setLoadingTaskId] = useState(null) // 🔹 toggle uchun loading
   const [openModal, setOpenModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
   const [form] = Form.useForm()
@@ -110,7 +112,6 @@ function ChallengeDetail({ userId }) {
   const handleOk = async () => {
     try {
       const values = await form.validateFields()
-  
       if (editTask) {
         await updateDoc(
           doc(
@@ -146,7 +147,6 @@ function ChallengeDetail({ userId }) {
         const startDay = values.startDay.toDate()
         const endDay = values.endDay.toDate()
         const activeDays = values.activeDays || []
-  
         let current = new Date(startDay)
         while (current <= endDay) {
           if (activeDays.includes(current.getDay())) {
@@ -170,7 +170,6 @@ function ChallengeDetail({ userId }) {
         message.success('Task(lar) yaratildi!')
         fetchTasks(false) // 🔹 yangi tasklarni olish
       }
-  
       setOpenModal(false)
       form.resetFields()
       setEditTask(null)
@@ -227,6 +226,7 @@ function ChallengeDetail({ userId }) {
 
   const toggleCompleted = async (task) => {
     try {
+      setLoadingTaskId(task.id) // 🔹 spin bosilsin
       await updateDoc(
         doc(db, `users/${userId}/challenges/${challengeId}/tasks/${task.id}`),
         { completed: !task.completed }
@@ -240,6 +240,8 @@ function ChallengeDetail({ userId }) {
     } catch (err) {
       console.error(err)
       message.error('Completed holatini yangilashda xatolik!')
+    } finally {
+      setLoadingTaskId(null) // 🔹 spin tugasin
     }
   }
 
@@ -289,13 +291,20 @@ function ChallengeDetail({ userId }) {
                       icon={<RiDeleteBin5Line />}
                     />,
                     <Button
-                      // className='text-green-600'
                       type='link'
                       onClick={() => toggleCompleted(task)}
+                      disabled={loadingTaskId === task.id}
                       icon={
-                        <MdCheckCircle
-                          color={task.completed ? 'green' : 'gray'}
-                        />
+                        loadingTaskId === task.id ? (
+                          <div
+                          >
+                            <Spin className='' size='small' />
+                          </div>
+                        ) : (
+                          <MdCheckCircle
+                            color={task.completed ? 'green' : 'gray'}
+                          />
+                        )
                       }
                     />,
                   ]}
