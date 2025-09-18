@@ -1,0 +1,204 @@
+/* Asosiy stillar va o'tishlar */
+/* * {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+} */
+
+/* Maxsus scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  
+  .progress-container-slim {
+    height: 4px;
+    background-color: #e5e7eb;
+    width: 100%;
+  }
+  
+  .progress-bar-slim {
+    height: 100%;
+    background: linear-gradient(90deg, #4096ff 0%, #032c53 100%);
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 2px;
+  }
+  
+  @keyframes progressBarAnimation {
+    0% {
+      filter: brightness(1);
+    }
+    50% {
+      filter: brightness(1.2);
+    }
+    100% {
+      filter: brightness(1);
+    }
+  }
+  
+  /* Sana Sarlavhasi */
+  .date-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .date-header::before,
+  .date-header::after {
+    content: '';
+    height: 1px;
+    background-color: #e5e7eb;
+    flex-grow: 1;
+  }
+  .date-text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  /* Task Kartasi Stili */
+  .task-card {
+    background: #ffffff;
+    border-radius: 13px;
+    padding: 15px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .task-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.08);
+    border-color: #d1d5db;
+  }
+  
+  .task-card.completed {
+    background-color: #eae8fb;
+    border-color: #aebdff;
+  }
+  
+  .task-card.completed .task-name {
+    /* text-decoration: line-through; */
+    color: #6b7280;
+  }
+  
+  .completion-button {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    border: 2px solid #e5e7eb;
+    cursor: pointer;
+  }
+  
+  .completion-button:hover {
+    background-color: #e5e7eb;
+    border-color: #d1d5db;
+  }
+  
+  .task-card.completed .completion-button {
+    background-color: #2a4fe2;
+    color: white;
+    border-color: #192be9;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  }
+  
+  .task-name {
+    font-size: 1.125rem; /* 18px */
+    font-weight: 600;
+    color: #1f2937;
+    display: block;
+    /* truncate: ellipsis; */
+  }
+  
+  .gamification-elements {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 8px;
+  }
+  
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  
+  .task-card:hover .action-buttons {
+    opacity: 1;
+  }
+  
+  /* Floating Action Button (FAB) */
+  .fab {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(145deg, #3b82f6 0%, #60a5fa 100%);
+    border: none;
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
+  }
+  .fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 30px -5px rgba(59, 130, 246, 0.5);
+  }
+  .fab svg {
+    color: white;
+  }
+  
+  /* Bo'sh holat uchun tugma */
+  .create-first-task-btn {
+    border-radius: 12px;
+    padding: 0 32px;
+    font-weight: 600;
+  }
+  
+  /* challengeDetailCss.css faylingizdagi eski .fab stilini o'chiring va buni qo'shing */
+  
+  /* Yangi, zamonaviy Floating Action Button (FAB) */
+  .fab-modern {
+    box-shadow: 0 10px 20px rgba(92, 62, 237, 0.25), 0 4px 8px rgba(0, 0, 0, 0.1);
+  
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fab-pulse 2s infinite;
+  }
+  
+  /* .fab-modern:active {
+      transform: translateY(-2px) scale(1.02);
+    } */
+  
+  /* Tugma uchun pulsatsiya animatsiyasi */
+  @keyframes fab-pulse {
+    0% {
+      transform: scale(0.98);
+      box-shadow: 0 10px 20px rgba(46, 175, 245, 0.25),
+        0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    50% {
+      transform: scale(1);
+      box-shadow: 0 12px 28px rgba(92, 62, 237, 0.3),
+        0 5px 10px rgba(0, 0, 0, 0.12);
+    }
+    100% {
+      transform: scale(0.98);
+      box-shadow: 0 10px 20px rgba(92, 62, 237, 0.25),
+        0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+  }
+  

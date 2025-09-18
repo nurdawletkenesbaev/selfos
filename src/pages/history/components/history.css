@@ -1,0 +1,12 @@
+.calendar-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 4px;
+  }
+  
+  .percent-text {
+    font-size: 10px;
+    color: #52c41a;
+    margin-top: 2px;
+  }

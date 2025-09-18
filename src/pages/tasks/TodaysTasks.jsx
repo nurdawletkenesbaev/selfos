@@ -12,25 +12,22 @@ import {
 import { db } from '../../firebase/firebase'
 import {
   Typography,
-  List,
   Button,
   message,
   Modal,
   Spin,
-  Form,
-  Input,
-  DatePicker,
-  Select,
+  Progress, // 🔥 Progress qo'shdik
 } from 'antd'
 import { RiDeleteBin5Line } from 'react-icons/ri'
-import { MdCheckCircle } from 'react-icons/md'
+import { MdCheckCircle, MdRadioButtonUnchecked } from 'react-icons/md'
 import { BiEditAlt } from 'react-icons/bi'
+import { CgMathPlus } from 'react-icons/cg'
 import dayjs from 'dayjs'
 import { useAuth } from '../../firebase/AuthContext'
+import '../challenges/components/challengeDetailCss.css'
 
 const { Title, Text } = Typography
 const { confirm } = Modal
-const { Option } = Select
 
 function TodaysTasks() {
   const { currentUser } = useAuth()
@@ -38,17 +35,12 @@ function TodaysTasks() {
 
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
-  const [loadingTasks, setLoadingTasks] = useState({})
-  const [editTask, setEditTask] = useState(null) // 🔹 edit uchun
-  const [openModal, setOpenModal] = useState(false)
-  const [form] = Form.useForm()
+  const [loadingTaskId, setLoadingTaskId] = useState(null)
 
-  // 🔹 Bugungi tasklarni olish
-  const fetchTodaysTasks = async () => {
+  const fetchTodaysTasks = async (showLoader = true) => {
     if (!userId) return
-
     try {
-      setLoading(true)
+      if (showLoader) setLoading(true)
       const challengesRef = collection(db, 'users', userId, 'challenges')
       const challengesSnap = await getDocs(challengesRef)
 
@@ -59,8 +51,7 @@ function TodaysTasks() {
       for (const challengeDoc of challengesSnap.docs) {
         const challengeData = challengeDoc.data()
         const challengeId = challengeDoc.id
-        const challengeTitle =
-          challengeData.title || challengeData.name || 'No name'
+        const challengeTitle = challengeData.title || 'No name'
 
         const tasksRef = collection(
           db,
@@ -94,7 +85,7 @@ function TodaysTasks() {
       console.error('🔥 Fetch error:', err)
       message.error('Bugungi tasklarni olishda xatolik!')
     } finally {
-      setLoading(false)
+      if (showLoader) setLoading(false)
     }
   }
 
@@ -102,10 +93,9 @@ function TodaysTasks() {
     fetchTodaysTasks()
   }, [userId])
 
-  // 🔹 Taskni o‘chirish
   const handleDelete = (task) => {
     confirm({
-      title: 'Are you sure you want to delete this task?',
+      title: 'Taskni o‘chirmoqchimisiz?',
       content: `"${task.taskName}" o‘chiriladi!`,
       okText: 'Ha, o‘chir',
       okType: 'danger',
@@ -118,7 +108,7 @@ function TodaysTasks() {
               `users/${userId}/challenges/${task.challengeId}/tasks/${task.id}`
             )
           )
-          setTasks((prev) => prev.filter((t) => t.id !== task.id))
+          fetchTodaysTasks()
           message.success('Task o‘chirildi!')
         } catch (err) {
           console.error(err)
@@ -128,9 +118,13 @@ function TodaysTasks() {
     })
   }
 
-  // 🔹 Taskni completed qilish
   const toggleCompleted = async (task) => {
-    setLoadingTasks((prev) => ({ ...prev, [task.id]: true }))
+    const newStatus = !task.completed
+    // 1. Optimistik yangilash
+    setTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, completed: newStatus } : t))
+    )
+    setLoadingTaskId(task.id)
 
     try {
       await updateDoc(
@@ -138,185 +132,112 @@ function TodaysTasks() {
           db,
           `users/${userId}/challenges/${task.challengeId}/tasks/${task.id}`
         ),
-        { completed: !task.completed }
+        { completed: newStatus }
       )
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === task.id ? { ...t, completed: !task.completed } : t
-        )
-      )
+      // 2. Muvaffaqiyatli bo‘lsa – hech nima qilmaymiz (state allaqachon to‘g‘ri)
     } catch (err) {
-      console.error(err)
+      // 3. Xato bo‘lsa – rollback
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, completed: !newStatus } : t))
+      )
       message.error('Completed holatini yangilashda xatolik!')
     } finally {
-      setLoadingTasks((prev) => ({ ...prev, [task.id]: false }))
+      setLoadingTaskId(null)
     }
   }
 
-  // 🔹 Taskni edit qilish
-  const handleOpenEdit = (task) => {
-    setEditTask(task)
-    form.setFieldsValue({
-      taskName: task.taskName,
-      type: task.type,
-      reminder: task.reminder ? dayjs(task.reminder.seconds * 1000) : null,
-    })
-    setOpenModal(true)
-  }
-
-  const handleOk = async () => {
-    try {
-      const values = await form.validateFields()
-      await updateDoc(
-        doc(
-          db,
-          `users/${userId}/challenges/${editTask.challengeId}/tasks/${editTask.id}`
-        ),
-        {
-          taskName: values.taskName,
-          type: values.type,
-          reminder: values.reminder
-            ? { seconds: values.reminder.unix() }
-            : null,
-        }
-      )
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === editTask.id
-            ? {
-                ...t,
-                taskName: values.taskName,
-                type: values.type,
-                reminder: values.reminder
-                  ? { seconds: values.reminder.unix() }
-                  : null,
-              }
-            : t
-        )
-      )
-      message.success('Task yangilandi!')
-      setOpenModal(false)
-      setEditTask(null)
-      form.resetFields()
-    } catch (err) {
-      console.error(err)
-      message.error('Taskni yangilashda xatolik!')
-    }
-  }
-
-  // 🔹 Guruhlash
-  const groupedByChallenge = tasks.reduce((acc, task) => {
-    if (!acc[task.challengeTitle]) acc[task.challengeTitle] = []
-    acc[task.challengeTitle].push(task)
-    return acc
-  }, {})
-
-  if (loading)
-    return (
-      <div
-        className='w-full h-full flex items-center justify-center'
-        style={{ textAlign: 'center', padding: '50px' }}
-      >
-        <Spin size='large' />
-      </div>
-    )
+  // 🔥 PROGRESS hisoblash
+  const completedCount = tasks.filter((t) => t.completed).length
+  const totalCount = tasks.length
+  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
   return (
-    <div style={{ padding: 20 }}>
-      <Title level={2} className='text-center'>
-        Today's Tasks
-      </Title>
+    <div className='min-h-screen bg-gray-50 custom-scrollbar'>
+      <div className='max-w-4xl mx-auto px-6 py-8'>
+        <Title level={3} className='text-center mb-4'>
+          Bugungi vazifalar
+        </Title>
 
-      {Object.keys(groupedByChallenge).length === 0 ? (
-        <Text>Bugungi kun uchun tasklar topilmadi.</Text>
-      ) : (
-        Object.keys(groupedByChallenge).map((challengeTitle) => (
-          <div key={challengeTitle} style={{ marginBottom: 20 }}>
-            <Text strong>{challengeTitle}</Text>
-            <List
-              bordered
-              dataSource={groupedByChallenge[challengeTitle]}
-              renderItem={(task) => (
-                <List.Item
-                  className={`${
-                    task.completed ? 'bg-green-500' : 'bg-red-100'
-                  } rounded-md`}
-                  actions={[
-                    <Button
-                      type='link'
-                      onClick={() => handleOpenEdit(task)}
-                      icon={<BiEditAlt />}
-                    />,
-                    <Button
-                      type='link'
-                      danger
-                      onClick={() => handleDelete(task)}
-                      icon={<RiDeleteBin5Line />}
-                    />,
-                    <Button
-                      type='link'
-                      onClick={() =>
-                        !loadingTasks[task.id] && toggleCompleted(task)
-                      }
-                      disabled={loadingTasks[task.id]}
-                      icon={
-                        loadingTasks[task.id] ? (
-                          <Spin size='small' />
-                        ) : (
-                          <MdCheckCircle
-                            color={task.completed ? 'green' : 'gray'}
-                          />
-                        )
-                      }
-                    />,
-                  ]}
-                >
-                  {task.taskName} {task.completed ? '- Completed' : ''}
-                </List.Item>
-              )}
+        {/* 🔥 Dashboard Progress Bar */}
+        {!loading && totalCount > 0 && (
+          <div className='flex justify-center mb-6'>
+            <Progress
+              type='dashboard'
+              steps={8}
+              percent={Math.round(progress)}
+              trailColor='rgba(0, 0, 0, 0.06)'
+              strokeWidth={30}
             />
           </div>
-        ))
-      )}
+        )}
 
-      {/* 🔹 Edit Modal */}
-      <Modal
-        title='Edit Task'
-        open={openModal}
-        onOk={handleOk}
-        onCancel={() => {
-          setOpenModal(false)
-          setEditTask(null)
-          form.resetFields()
-        }}
-        okText='Save'
-        cancelText='Bekor qilish'
-      >
-        <Form form={form} layout='vertical'>
-          <Form.Item
-            name='taskName'
-            label='Task nomi'
-            rules={[{ required: true, message: 'Nom kiriting!' }]}
-          >
-            <Input />
-          </Form.Item>
-
-          <Form.Item
-            name='type'
-            label='Type'
-            rules={[{ required: true, message: 'Type tanlang!' }]}
-          >
-            <Select>
-              <Option value='quicktask'>Quick Task</Option>
-              <Option value='main'>Main Task</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item name='reminder' label='Reminder'>
-            <DatePicker style={{ width: '100%' }} showTime />
-          </Form.Item>
-        </Form>
-      </Modal>
+        {loading ? (
+          <div className='text-center py-12'>
+            <Spin size='large' />
+          </div>
+        ) : tasks.length > 0 ? (
+          <div className='space-y-4'>
+            {tasks.map((task) => (
+              <div
+                key={task.id}
+                className={`task-card ${task.completed ? 'completed' : ''}`}
+              >
+                <div className='flex items-center space-x-4'>
+                  <button
+                    onClick={() => toggleCompleted(task)}
+                    disabled={loadingTaskId === task.id}
+                    className='completion-button'
+                  >
+                    {loadingTaskId === task.id ? (
+                      <Spin size='small' />
+                    ) : task.completed ? (
+                      <MdCheckCircle size={18} />
+                    ) : (
+                      <MdRadioButtonUnchecked size={18} />
+                    )}
+                  </button>
+                  <div className='flex-1 min-w-0'>
+                    <Text className='task-name'>{task.taskName}</Text>
+                    <Text className='text-xs text-gray-500'>
+                      {task.challengeTitle}
+                    </Text>
+                  </div>
+                  <div className='action-buttons'>
+                    <Button
+                      type='text'
+                      size='small'
+                      onClick={() => {
+                        setEditTask(task)
+                        setOpenModal(true)
+                      }}
+                      icon={<BiEditAlt size={18} />}
+                    />
+                    <Button
+                      type='text'
+                      size='small'
+                      danger
+                      onClick={() => handleDelete(task)}
+                      icon={<RiDeleteBin5Line size={18} />}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className='text-center py-16'>
+            <div className='w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4'>
+              <CgMathPlus size={32} className='text-gray-400' />
+            </div>
+            <Text className='text-xl font-semibold text-gray-700 mb-2'>
+              Bugungi vazifalar yo‘q
+            </Text>
+            <Text className='text-gray-500'>
+              Challenge sahifasida vazifa qo‘shing!
+            </Text>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

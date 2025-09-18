@@ -12,6 +12,7 @@ import {
 import { db } from '../../../firebase/firebase'
 import { List, Input, Button, Form, Space, Typography, message } from 'antd'
 
+
 const { Text } = Typography
 
 function CreateChallenge({ userId }) {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   collection,
@@ -15,7 +15,6 @@ import {
 import { db } from '../../../firebase/firebase'
 import {
   Typography,
-  List,
   Button,
   Modal,
   Form,
@@ -25,11 +24,15 @@ import {
   Checkbox,
   message,
   Spin,
+  Progress,
 } from 'antd'
 import { CgMathPlus } from 'react-icons/cg'
 import { BiEditAlt } from 'react-icons/bi'
 import { RiDeleteBin5Line } from 'react-icons/ri'
-import { MdCheckCircle } from 'react-icons/md'
+import { MdCheckCircle, MdRadioButtonUnchecked } from 'react-icons/md'
+import { HiOutlineFire } from 'react-icons/hi'
+import { BsLightning } from 'react-icons/bs'
+import './challengeDetailCss.css'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -52,12 +55,17 @@ function ChallengeDetail({ userId }) {
   const [challenge, setChallenge] = useState(null)
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
-  const [loadingTaskId, setLoadingTaskId] = useState(null) // 🔹 toggle uchun loading
+  const [loadingTaskId, setLoadingTaskId] = useState(null)
   const [openModal, setOpenModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
   const [form] = Form.useForm()
+  const [modalLoading, setModalLoading] = useState(false)
+  const todayRef = useRef(null)
 
-  // 🔹 Fetch challenge
+  const getPopupContainer = (triggerNode) =>
+    (triggerNode && triggerNode.closest && triggerNode.closest('.ant-modal')) ||
+    document.body
+
   const fetchChallenge = async () => {
     if (!userId || !challengeId) return
     try {
@@ -75,7 +83,6 @@ function ChallengeDetail({ userId }) {
     }
   }
 
-  // 🔹 Fetch tasks
   const fetchTasks = async (withLoading = true) => {
     if (!userId || !challengeId) return
     if (withLoading) setLoading(true)
@@ -99,18 +106,73 @@ function ChallengeDetail({ userId }) {
     fetchTasks()
   }, [userId, challengeId])
 
-  // 🔹 Group tasks by date
-  const groupedTasks = tasks.reduce((acc, task) => {
-    if (!task.date) return acc
-    const dateStr = new Date(task.date.seconds * 1000).toLocaleDateString()
-    if (!acc[dateStr]) acc[dateStr] = []
-    acc[dateStr].push(task)
-    return acc
-  }, {})
+  useEffect(() => {
+    if (!loading && todayRef.current) {
+      todayRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    }
+  }, [loading])
 
-  // 🔹 Create/Edit task
+  useEffect(() => {
+    if (!openModal) return
+    if (editTask) {
+      form.setFieldsValue({
+        taskName: editTask.taskName || '',
+        type: editTask.type || 'quicktask',
+        reminder: editTask.reminder
+          ? dayjs.unix(editTask.reminder.seconds)
+          : null,
+      })
+    } else {
+      form.resetFields()
+    }
+  }, [openModal, editTask, form])
+
+  const dailyProgressPercentage = useMemo(() => {
+    const todaysTasks = tasks.filter((task) => {
+      if (!task.date) return false
+      const taskDate = task.date.seconds
+        ? dayjs.unix(task.date.seconds)
+        : dayjs(task.date)
+      return taskDate.isSame(dayjs(), 'day')
+    })
+
+    const completed = todaysTasks.filter((t) => t.completed).length
+    const total = todaysTasks.length
+    return total ? Math.round((completed / total) * 100) : 0
+  }, [tasks])
+
+  const getFormattedDate = (date) => {
+    return new Date(date.seconds * 1000).toLocaleDateString('uz-UZ', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  }
+
+  const groupedTasks = useMemo(
+    () =>
+      tasks.reduce((acc, task) => {
+        if (!task.date) return acc
+        const dateStr = getFormattedDate(task.date)
+        if (!acc[dateStr]) acc[dateStr] = []
+        acc[dateStr].push(task)
+        return acc
+      }, {}),
+    [tasks]
+  )
+
+  const todayStr = new Date().toLocaleDateString('uz-UZ', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
   const handleOk = async () => {
     try {
+      setModalLoading(true) // ✅ bosilganda loading yoqiladi
       const values = await form.validateFields()
       if (editTask) {
         await updateDoc(
@@ -126,21 +188,6 @@ function ChallengeDetail({ userId }) {
               : null,
             updatedAt: Timestamp.now(),
           }
-        )
-        // Optimistik update
-        setTasks((prev) =>
-          prev.map((t) =>
-            t.id === editTask.id
-              ? {
-                  ...t,
-                  taskName: values.taskName,
-                  type: values.type,
-                  reminder: values.reminder
-                    ? { seconds: values.reminder.unix() }
-                    : null,
-                }
-              : t
-          )
         )
         message.success('Task yangilandi!')
       } else {
@@ -168,14 +215,16 @@ function ChallengeDetail({ userId }) {
           current.setDate(current.getDate() + 1)
         }
         message.success('Task(lar) yaratildi!')
-        fetchTasks(false) // 🔹 yangi tasklarni olish
       }
+      await fetchTasks(false)
       setOpenModal(false)
-      form.resetFields()
       setEditTask(null)
+      form.resetFields()
     } catch (err) {
       console.error(err)
       message.error('Xatolik yuz berdi!')
+    } finally {
+      setModalLoading(false) // ✅ loading to'xtaydi
     }
   }
 
@@ -187,22 +236,20 @@ function ChallengeDetail({ userId }) {
 
   const handleOpenEdit = (task) => {
     setEditTask(task)
-    form.setFieldsValue({
-      taskName: task.taskName,
-      type: task.type,
-      startDay: task.date ? dayjs(task.date.seconds * 1000) : null,
-      endDay: task.date ? dayjs(task.date.seconds * 1000) : null,
-      activeDays: [new Date(task.date.seconds * 1000).getDay()],
-      reminder: task.reminder ? dayjs(task.reminder.seconds * 1000) : null,
-    })
     setOpenModal(true)
+  }
+
+  const handleCancelModal = () => {
+    setOpenModal(false)
+    setEditTask(null)
+    form.resetFields()
   }
 
   const handleDelete = (task) => {
     confirm({
-      title: 'Are you sure you want to delete this task?',
-      content: `"${task.taskName}" o‘chiriladi!`,
-      okText: 'Ha, o‘chir',
+      title: "Taskni o'chirmoqchimisiz?",
+      content: `"${task.taskName}" o'chiriladi!`,
+      okText: "Ha, o'chir",
       okType: 'danger',
       cancelText: 'Bekor qilish',
       onOk: async () => {
@@ -213,9 +260,8 @@ function ChallengeDetail({ userId }) {
               `users/${userId}/challenges/${challengeId}/tasks/${task.id}`
             )
           )
-          // Optimistik update
-          setTasks((prev) => prev.filter((t) => t.id !== task.id))
-          message.success('Task o‘chirildi!')
+          fetchTasks(false)
+          message.success("Task o'chirildi!")
         } catch (err) {
           console.error(err)
           message.error('Xatolik yuz berdi!')
@@ -226,124 +272,215 @@ function ChallengeDetail({ userId }) {
 
   const toggleCompleted = async (task) => {
     try {
-      setLoadingTaskId(task.id) // 🔹 spin bosilsin
+      setLoadingTaskId(task.id)
       await updateDoc(
         doc(db, `users/${userId}/challenges/${challengeId}/tasks/${task.id}`),
         { completed: !task.completed }
       )
-      // Optimistik update
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === task.id ? { ...t, completed: !task.completed } : t
-        )
-      )
+      fetchTasks(false)
     } catch (err) {
       console.error(err)
       message.error('Completed holatini yangilashda xatolik!')
     } finally {
-      setLoadingTaskId(null) // 🔹 spin tugasin
+      setLoadingTaskId(null)
     }
   }
 
-  if (!challenge) return <Text>Loading challenge...</Text>
+  if (loading && !challenge) {
+    return (
+      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
+        <Spin size='large' />
+      </div>
+    )
+  }
 
   return (
-    <div style={{ padding: 20 }}>
-      <Title level={2} className='text-center'>
-        {challenge.title}
-      </Title>
-
-      <div className='absolute bottom-4 right-4 animate-bounce z-10'>
-        <Button
-          style={{ backgroundColor: '#1677ff' }}
-          onClick={handleOpenCreate}
-        >
-          <CgMathPlus color='white' size={20} />
-        </Button>
+    <div className='min-h-screen bg-gray-50 custom-scrollbar'>
+      {/* Sticky Header */}
+      <div className='sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-gray-200 challenge-header'>
+        <div className='max-w-4xl mx-auto px-4 sm:px-6'>
+          <div className='flex items-center justify-between h-16'>
+            <div className='flex-1'>
+              <Text
+                className='text-sm font-semibold text-gray-600 hover:text-blue-600 cursor-pointer flex items-center gap-1'
+                onClick={() => navigate(-1)}
+              >
+                ← Orqaga
+              </Text>
+            </div>
+            <div className='flex-1 text-center'>
+              <Title level={5} className='text-gray-800 m-0 truncate font-bold'>
+                {challenge?.title}
+              </Title>
+            </div>
+            <div className='flex-1 text-right'>
+              <Text className='text-sm font-bold text-blue-600'>
+                {dailyProgressPercentage}% (Bugun)
+              </Text>
+            </div>
+          </div>
+          {/* ✅ Ant Design Progress qo‘shildi */}
+          <Progress
+            percent={dailyProgressPercentage}
+            strokeColor={{
+              from: '#108ee9',
+              to: '#87d068',
+            }}
+            status='active'
+            showInfo={false}
+          />
+        </div>
       </div>
 
-      {loading ? (
-        <Text>Loading tasks...</Text>
-      ) : (
-        Object.keys(groupedTasks).map((date) => (
-          <div key={date} style={{ marginBottom: 20 }}>
-            <Text strong>{date}</Text>
-            <List
-              bordered
-              dataSource={groupedTasks[date]}
-              renderItem={(task) => (
-                <List.Item
-                  className={`${
-                    task.completed ? 'bg-green-500' : 'bg-red-100'
-                  } rounded-md`}
-                  actions={[
-                    <Button
-                      className='gray-600'
-                      type='link'
-                      onClick={() => handleOpenEdit(task)}
-                      icon={<BiEditAlt />}
-                    />,
-                    <Button
-                      className='gray-600'
-                      type='link'
-                      danger
-                      onClick={() => handleDelete(task)}
-                      icon={<RiDeleteBin5Line />}
-                    />,
-                    <Button
-                      type='link'
-                      onClick={() => toggleCompleted(task)}
-                      disabled={loadingTaskId === task.id}
-                      icon={
-                        loadingTaskId === task.id ? (
-                          <div
-                          >
-                            <Spin className='' size='small' />
-                          </div>
-                        ) : (
-                          <MdCheckCircle
-                            color={task.completed ? 'green' : 'gray'}
-                          />
-                        )
-                      }
-                    />,
-                  ]}
-                >
-                  {task.taskName} {task.completed ? '- Completed' : ''}
-                </List.Item>
-              )}
-            />
+      {/* Main Content */}
+      <div className='max-w-4xl mx-auto px-6 py-8'>
+        {loading ? (
+          <div className='text-center py-12'>
+            <Spin size='large' />
           </div>
-        ))
+        ) : (
+          <div className='space-y-8'>
+            {Object.keys(groupedTasks).length > 0 ? (
+              Object.keys(groupedTasks).map((date) => (
+                <div
+                  key={date}
+                  className='space-y-4'
+                  ref={date === todayStr ? todayRef : null}
+                >
+                  <div className='date-header'>
+                    <Text className='date-text'>
+                      {date === todayStr ? `Bugun, ${date}` : date}
+                    </Text>
+                  </div>
+                  <div className='space-y-3'>
+                    {groupedTasks[date].map((task) => (
+                      <div
+                        key={task.id}
+                        className={`task-card ${
+                          task.completed ? 'completed' : ''
+                        }`}
+                      >
+                        <div className='flex items-center space-x-4'>
+                          <button
+                            onClick={() => toggleCompleted(task)}
+                            disabled={loadingTaskId === task.id}
+                            className='completion-button'
+                          >
+                            {loadingTaskId === task.id ? (
+                              <Spin size='small' />
+                            ) : task.completed ? (
+                              <MdCheckCircle size={18} />
+                            ) : (
+                              <MdRadioButtonUnchecked size={18} />
+                            )}
+                          </button>
+                          <div className=' flex-1 min-w-0'>
+                            <Text className='task-name'>{task.taskName}</Text>
+                            {/* <div className='gamification-elements'>
+                              <div className='flex items-center space-x-1'>
+                                <BsLightning className='text-orange-400' />
+                                <Text className='text-xs text-gray-500 font-medium'>
+                                  +10 XP
+                                </Text>
+                              </div>
+                              <div className='flex items-center space-x-1'>
+                                <HiOutlineFire className='text-red-400' />
+                                <Text className='text-xs text-gray-500 font-medium'>
+                                  Streak
+                                </Text>
+                              </div>
+                            </div> */}
+                          </div>
+                          <div className='action-buttons'>
+                            <Button
+                              type='text'
+                              size='small'
+                              onClick={() => handleOpenEdit(task)}
+                              icon={<BiEditAlt size={18} />}
+                            />
+                            <Button
+                              type='text'
+                              size='small'
+                              danger
+                              onClick={() => handleDelete(task)}
+                              icon={<RiDeleteBin5Line size={18} />}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className='text-center py-16'>
+                <div className='w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4'>
+                  <CgMathPlus size={32} className='text-gray-400' />
+                </div>
+                <Text className='text-xl font-semibold text-gray-700 mb-2'>
+                  Hali vazifalar yo'q
+                </Text>
+                <Text className='text-gray-500 mb-6'>
+                  Birinchi vazifangizni yaratib, challengeni boshlang!
+                </Text>
+                <Button
+                  type='primary'
+                  size='large'
+                  onClick={handleOpenCreate}
+                  className='create-first-task-btn'
+                >
+                  Birinchi vazifani yaratish
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* "+" Button */}
+      {Object.keys(groupedTasks).length > 0 && (
+        <div className='fixed bottom-8 right-8 z-50'>
+          <button
+            onClick={handleOpenCreate}
+            className='cursor-pointer flex items-center justify-center w-[40px] h-[40px] bg-[#001529] rounded md animate-bounce fab-modern'
+          >
+            <CgMathPlus size={24} color='#4096ff' />
+          </button>
+        </div>
       )}
 
+      {/* ✅ MODAL TUZATILGAN */}
       <Modal
-        title={editTask ? 'Edit Task' : 'Yangi Task'}
+        title={editTask ? 'Taskni tahrirlash' : 'Yangi task yaratish'}
         open={openModal}
         onOk={handleOk}
-        onCancel={() => {
-          setOpenModal(false)
-          setEditTask(null)
-          form.resetFields()
-        }}
-        okText={editTask ? 'Save' : 'Yaratish'}
+        onCancel={handleCancelModal}
+        okText={editTask ? 'Saqlash' : 'Yaratish'}
         cancelText='Bekor qilish'
+        destroyOnHidden={false}
+        maskClosable={false}
+        confirmLoading={modalLoading} // ✅ modal OK tugmasi loading holati
       >
-        <Form form={form} layout='vertical'>
+        <Form
+          form={form}
+          layout='vertical'
+          style={{ marginTop: '24px' }}
+          preserve={true}
+        >
           <Form.Item
             name='taskName'
             label='Task nomi'
             rules={[{ required: true, message: 'Nom kiriting!' }]}
           >
-            <Input />
+            <Input size='large' placeholder='Masalan: 30 daqiqa yugurish' />
           </Form.Item>
-
           <Form.Item
             name='type'
-            label='Type'
+            label='Turi'
             rules={[{ required: true, message: 'Type tanlang!' }]}
+            initialValue='quicktask'
           >
-            <Select>
+            <Select size='large'>
               <Option value='quicktask'>Quick Task</Option>
               <Option value='main'>Main Task</Option>
             </Select>
@@ -351,36 +488,48 @@ function ChallengeDetail({ userId }) {
 
           {!editTask && (
             <>
-              <Form.Item
-                name='startDay'
-                label='Start Day'
-                rules={[
-                  { required: true, message: 'Boshlanish kunini tanlang!' },
-                ]}
-              >
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-              <Form.Item
-                name='endDay'
-                label='End Day'
-                rules={[{ required: true, message: 'Tugash kunini tanlang!' }]}
-              >
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
+              <div className='grid grid-cols-2 gap-4'>
+                <Form.Item
+                  name='startDay'
+                  label='Boshlanish kuni'
+                  rules={[{ required: true, message: 'Sanani tanlang!' }]}
+                >
+                  <DatePicker
+                    size='large'
+                    className='w-full'
+                    getPopupContainer={getPopupContainer}
+                  />
+                </Form.Item>
+                <Form.Item
+                  name='endDay'
+                  label='Tugash kuni'
+                  rules={[{ required: true, message: 'Sanani tanlang!' }]}
+                >
+                  <DatePicker
+                    size='large'
+                    className='w-full'
+                    getPopupContainer={getPopupContainer}
+                  />
+                </Form.Item>
+              </div>
               <Form.Item
                 name='activeDays'
-                label='Active Days'
-                rules={[
-                  { required: true, message: 'Hafta kunlarini tanlang!' },
-                ]}
+                label='Faol kunlar'
+                rules={[{ required: true, message: 'Kunlarni tanlang!' }]}
               >
                 <Checkbox.Group options={weekDaysOptions} />
               </Form.Item>
             </>
           )}
 
-          <Form.Item name='reminder' label='Reminder'>
-            <DatePicker style={{ width: '100%' }} showTime />
+          <Form.Item name='reminder' label='Eslatma'>
+            <DatePicker
+              size='large'
+              className='w-full'
+              showTime
+              placeholder='Eslatma vaqtini tanlang'
+              getPopupContainer={getPopupContainer}
+            />
           </Form.Item>
         </Form>
       </Modal>

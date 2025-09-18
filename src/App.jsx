@@ -25,6 +25,7 @@ import ChallengeDetail from './pages/challenges/components/challengeDetail'
 import CreateChallenge from './pages/challenges/components/createChallenge'
 import Challenges from './pages/challenges/challenges'
 import { useAuth } from './firebase/AuthContext'
+import DayDetail from './pages/history/components/DayDetail'
 
 const App = () => {
   const [userId, setUserId] = useState(null)
@@ -81,6 +82,7 @@ const App = () => {
           />
           <Route path='/pomodoro-timer' element={<Pomodoro />} />
           <Route path='/history' element={<History />} />
+          <Route path='/day-detail/:date' element={<DayDetail />} />
           <Route path='/statistics' element={<Statistics />} />
           <Route path='/goals' element={<Goals />} />
           <Route path='/about-app' element={<AboutApp />} />
