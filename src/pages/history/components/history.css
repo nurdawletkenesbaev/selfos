@@ -1,12 +1,68 @@
+/* Orqa fon */
+.history-page {
+  background: linear-gradient(135deg, #c8cace 0%, #ecf5fa 50%, #afb8cb 100%);
+}
+
+/* Sarlavha */
+.history-title {
+  text-align: center;
+  color: #e2e8f0;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+  letter-spacing: 1px;
+}
+
+/* Kalendar o‘rnatmasi */
+.calendar-wrapper {
+  backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Kalendar ichidagi kun hujayrasi */
 .calendar-cell {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 4px;
-  }
-  
-  .percent-text {
-    font-size: 10px;
-    color: #52c41a;
-    margin-top: 2px;
-  }
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 4px 2px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+}
+
+/* .calendar-cell:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.6);
+} */
+
+/* Foiz matni */
+.percent-text {
+  font-size: 10px;
+  color: #ffffff;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* Ant Design Calendar tema override */
+.glass-calendar {
+  background: transparent;
+  border: none;
+}
+
+.glass-calendar .ant-picker-calendar-date {
+  background: transparent;
+  border: none;
+}
+
+.glass-calendar .ant-picker-calendar-date-value {
+  color: #cbd5e1;
+}
+
+.glass-calendar .ant-picker-calendar-date:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}

@@ -1,0 +1,152 @@
+/* orqa fon */
+.challenges-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  padding: 32px 24px 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* top bar */
+.top-bar {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+.page-title {
+  color: #e2e8f0;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+.add-btn {
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  border: 0;
+  font-weight: 600;
+}
+
+/* grid */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+  width: 100%;
+  max-width: 900px;
+}
+
+/* glass-card */
+.challenge-card {
+  position: relative;
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 16px;
+  cursor: pointer;
+  transform: perspective(1000px) rotateX(0) rotateY(0);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+}
+.challenge-card:hover {
+  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg) scale(1.03);
+  box-shadow: 0 25px 50px -12px rgba(0, 255, 255, 0.25);
+}
+
+/* glow */
+.glow {
+  position: absolute;
+  inset: -1px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #0ea5e9, #a855f7);
+  opacity: 0;
+  filter: blur(10px);
+  z-index: -1;
+  transition: opacity 0.3s ease;
+}
+.challenge-card:hover .glow {
+  opacity: 0.75;
+}
+
+/* gradient cover */
+.cover {
+  height: 90px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.cover-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 8px;
+}
+
+/* stats */
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.stat-val {
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* progress ring */
+.progress-ring {
+  width: 60px;
+  height: 60px;
+  margin: 8px auto 0;
+}
+.progress-ring .bar {
+  transition: stroke-dashoffset 0.7s ease;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* actions */
+.actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 18px;
+}
+.actions svg {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.actions svg:hover {
+  color: #fff;
+}
+
+/* drag jiggle */
+.challenge-card.dragging {
+  transform: scale(1.05) rotate(2deg);
+  animation: jiggle 0.3s ease-in-out;
+  z-index: 999;
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+}
+@keyframes jiggle {
+  0%,
+  100% {
+    transform: scale(1.05) rotate(2deg);
+  }
+  25% {
+    transform: scale(1.05) rotate(-2deg);
+  }
+  75% {
+    transform: scale(1.05) rotate(2deg);
+  }
+}

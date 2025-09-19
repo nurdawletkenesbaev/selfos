@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { AiOutlineEdit } from 'react-icons/ai'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   collection,
   addDoc,
@@ -8,265 +10,325 @@ import {
   deleteDoc,
   query,
   orderBy,
+  Timestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase/firebase'
-import {
-  Button,
-  Modal,
-  Form,
-  Input,
-  DatePicker,
-  message,
-  Typography,
-} from 'antd'
+import { Button, Modal, Form, Input, DatePicker, message } from 'antd'
 import { CgMathPlus } from 'react-icons/cg'
 import { RiDeleteBin5Line } from 'react-icons/ri'
-import { BiEditAlt } from 'react-icons/bi'
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { useNavigate } from 'react-router-dom'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { useAuth } from '../../firebase/AuthContext'
 import dayjs from 'dayjs'
+import './components/challenges.css'
 
-const { Text } = Typography
+// const { Text } = Typography0
 const { confirm } = Modal
 
+/* gradientlar */
+const gradientMap = [
+  ['#667eea', '#764ba2'],
+  ['#f093fb', '#f5576c'],
+  ['#4facfe', '#00f2fe'],
+  ['#43e97b', '#38f9d7'],
+  ['#fa709a', '#fee140'],
+  ['#a8edea', '#fed6e3'],
+]
+
+/* 1 ta sortable kartochka */
+function SortableChallenge({ ch, percent, g1, g2, onClick, onEdit, onDelete }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: ch.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`challenge-card ${isDragging ? 'dragging' : ''}`}
+      {...attributes}
+      {...listeners}
+      onClick={onClick}
+    >
+      <div className='glow' />
+      <div
+        className='cover'
+        style={{ background: `linear-gradient(135deg,${g1},${g2})` }}
+      >
+        <span className='cover-title'>{ch.title}</span>
+      </div>
+
+      <div className='stats-row'>
+        <span className='stat-val'>🔥 {ch.streak || 0} d</span>
+        <span className='stat-val'>⚡ {percent}%</span>
+      </div>
+
+      <svg className='progress-ring' viewBox='0 0 48 48'>
+        <circle
+          cx='24'
+          cy='24'
+          r='20'
+          stroke='rgba(255,255,255,.15)'
+          strokeWidth='4'
+          fill='none'
+        />
+        <circle
+          cx='24'
+          cy='24'
+          r='20'
+          stroke='url(#grad)'
+          strokeWidth='4'
+          fill='none'
+          strokeDasharray={2 * Math.PI * 20}
+          strokeDashoffset={2 * Math.PI * 20 * (1 - percent / 100)}
+          strokeLinecap='round'
+          className='bar'
+        />
+        <defs>
+          <linearGradient id='grad' x1='0%' y1='0%' x2='100%' y2='100%'>
+            <stop offset='0%' stopColor='#34d399' />
+            <stop offset='100%' stopColor='#10b981' />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <div className='actions'>
+        <AiOutlineEdit
+          onClick={(e) => {
+            e.stopPropagation()
+            onEdit(ch)
+          }}
+        />
+        <RiDeleteBin5Line
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete(ch)
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 function Challenges({ userId }) {
+  const navigate = useNavigate()
   const [challenges, setChallenges] = useState([])
   const [open, setOpen] = useState(false)
   const [editChallenge, setEditChallenge] = useState(null)
   const [form] = Form.useForm()
-  const navigate = useNavigate()
 
-  // 🔹 Load challenges
-  const fetchChallenges = async () => {
+  /* load */
+  useEffect(() => {
     if (!userId) return
     const q = query(
       collection(db, `users/${userId}/challenges`),
       orderBy('order', 'asc')
     )
-    const snapshot = await getDocs(q)
-    const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-    setChallenges(data)
-  }
-
-  useEffect(() => {
-    fetchChallenges()
+    getDocs(q).then((snap) =>
+      setChallenges(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    )
   }, [userId])
 
-  // 🔹 Open modal for create
+  /* create / edit */
   const handleOpenCreate = () => {
     setEditChallenge(null)
     form.resetFields()
     setOpen(true)
   }
-
-  // 🔹 Open modal for edit
-  const handleOpenEdit = (challenge) => {
-    setEditChallenge(challenge)
+  const handleOpenEdit = (ch) => {
+    setEditChallenge(ch)
     form.setFieldsValue({
-      title: challenge.title,
-      startDate: challenge.startDate
-        ? dayjs(challenge.startDate.toDate())
-        : null,
-      endDate: challenge.endDate ? dayjs(challenge.endDate.toDate()) : null,
+      title: ch.title,
+      startDate: ch.startDate ? dayjs(ch.startDate.toDate()) : null,
+      endDate: ch.endDate ? dayjs(ch.endDate.toDate()) : null,
     })
     setOpen(true)
   }
-
-  // 🔹 Handle create or edit
   const handleOk = async () => {
     try {
-      const values = await form.validateFields()
+      const v = await form.validateFields()
       if (editChallenge) {
         await updateDoc(
           doc(db, 'users', userId, 'challenges', editChallenge.id),
           {
-            title: values.title,
-            startDate: values.startDate ? values.startDate.toDate() : null,
-            endDate: values.endDate ? values.endDate.toDate() : null,
+            title: v.title,
+            startDate: v.startDate ? v.startDate.toDate() : null,
+            endDate: v.endDate ? v.endDate.toDate() : null,
           }
         )
-        message.success('Challenge yangilandi!')
+        message.success('Yangilandi!')
       } else {
         await addDoc(collection(db, 'users', userId, 'challenges'), {
-          title: values.title,
-          startDate: values.startDate ? values.startDate.toDate() : null,
-          endDate: values.endDate ? values.endDate.toDate() : null,
+          title: v.title,
+          startDate: v.startDate ? v.startDate.toDate() : null,
+          endDate: v.endDate ? v.endDate.toDate() : null,
           createdAt: new Date(),
           order: challenges.length,
         })
-        message.success('Challenge yaratildi!')
+        message.success('Yaratildi!')
       }
       setOpen(false)
       form.resetFields()
-      fetchChallenges()
-    } catch (err) {
-      console.error(err)
-      message.error('Xatolik yuz berdi!')
+      // refresh
+      const snap = await getDocs(
+        query(
+          collection(db, `users/${userId}/challenges`),
+          orderBy('order', 'asc')
+        )
+      )
+      setChallenges(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    } catch (e) {
+      console.error(e)
+      message.error('Xatolik!')
     }
   }
 
-  // 🔹 Confirm delete
-
-  const handleDelete = (challenge) => {
+  /* delete */
+  const handleDelete = (ch) => {
     confirm({
-      title: 'Are you sure you want to delete this challenge?',
-      content: `"${challenge.title}" challenge va unga tegishli barcha tasks o‘chiriladi!`,
-      okText: 'Ha, o‘chir',
+      title: 'O‘chirmoqchimisiz?',
+      content: `"${ch.title}" va barcha tasklari o‘chadi!`,
       okType: 'danger',
-      cancelText: 'Bekor qilish',
       onOk: async () => {
-        try {
-          // 1. Shu challenge ichidagi taskslarni olish
-          const tasksSnapshot = await getDocs(
-            collection(db, 'users', userId, 'challenges', challenge.id, 'tasks')
+        const tasksSnap = await getDocs(
+          collection(db, 'users', userId, 'challenges', ch.id, 'tasks')
+        )
+        await Promise.all(tasksSnap.docs.map((t) => deleteDoc(t.ref)))
+        await deleteDoc(doc(db, 'users', userId, 'challenges', ch.id))
+        message.success('O‘chirildi!')
+        const snap = await getDocs(
+          query(
+            collection(db, `users/${userId}/challenges`),
+            orderBy('order', 'asc')
           )
-
-          // 2. Har bir taskni o‘chirish
-          const deleteTasks = tasksSnapshot.docs.map((taskDoc) =>
-            deleteDoc(taskDoc.ref)
-          )
-          await Promise.all(deleteTasks)
-
-          // 3. Challenge'ni o‘chirish
-          await deleteDoc(doc(db, 'users', userId, 'challenges', challenge.id))
-
-          message.success('Challenge va unga tegishli barcha tasks o‘chirildi!')
-          fetchChallenges()
-        } catch (err) {
-          console.error(err)
-          message.error('Xatolik yuz berdi!')
-        }
+        )
+        setChallenges(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       },
     })
   }
 
-  // 🔹 Drag and Drop handler
-  const handleDragEnd = async (result) => {
-    if (!result.destination) return
-    const items = Array.from(challenges)
-    const [reorderedItem] = items.splice(result.source.index, 1)
-    items.splice(result.destination.index, 0, reorderedItem)
-    setChallenges(items)
-    try {
+  /* drag */
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  )
+  const handleDragEnd = async (event) => {
+    const { active, over } = event
+    if (active.id !== over.id) {
+      setChallenges((items) => {
+        const oldIndex = items.findIndex((ch) => ch.id === active.id)
+        const newIndex = items.findIndex((ch) => ch.id === over.id)
+        return arrayMove(items, oldIndex, newIndex)
+      })
+      const newOrder = arrayMove(
+        challenges,
+        challenges.findIndex((ch) => ch.id === active.id),
+        challenges.findIndex((ch) => ch.id === over.id)
+      )
       await Promise.all(
-        items.map((challenge, index) =>
-          updateDoc(doc(db, 'users', userId, 'challenges', challenge.id), {
-            order: index,
+        newOrder.map((ch, idx) =>
+          updateDoc(doc(db, 'users', userId, 'challenges', ch.id), {
+            order: idx,
           })
         )
       )
-    } catch (err) {
-      console.error(err)
-      message.error('Tartibni saqlashda xatolik!')
     }
   }
 
-  return (
-    <div style={{ padding: 20 }}>
-      <h1 className='text-center text-[30px] mb-4'>My Challenges</h1>
+  /* dummy progress */
+  const calcPercent = (ch) => ch.dailyProgress || 0
 
-      <div className='absolute bottom-4 right-4 animate-bounce'>
+  return (
+    <div className='challenges-page'>
+      <div className='top-bar'>
+        <h1 className='page-title'>My Challenges</h1>
         <Button
-          style={{ backgroundColor: '#1677ff' }}
+          type='primary'
+          shape='round'
+          size='large'
           onClick={handleOpenCreate}
+          icon={<CgMathPlus />}
+          className='add-btn'
         >
-          <CgMathPlus color='white' size={20} />
+          Yangi
         </Button>
       </div>
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId='challenges'>
-          {(provided) => (
-            <div {...provided.droppableProps} ref={provided.innerRef}>
-              {challenges.map((challenge, index) => (
-                <Draggable
-                  key={challenge.id}
-                  draggableId={challenge.id.toString()}
-                  index={index}
-                >
-                  {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '10px',
-                        marginBottom: '8px',
-                        background: '#fff',
-                        border: '1px solid #ddd',
-                        borderRadius: '5px',
-                        ...provided.draggableProps.style,
-                      }}
-                    >
-                      {/* Drag handle */}
-                      <div
-                        {...provided.dragHandleProps}
-                        style={{ marginRight: 10, cursor: 'grab' }}
-                      >
-                        ☰
-                      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={challenges.map((ch) => ch.id)}
+          strategy={rectSortingStrategy}
+        >
+          <div className='cards-grid'>
+            {challenges.map((ch, idx) => {
+              const [g1, g2] = gradientMap[idx % gradientMap.length]
+              const percent = calcPercent(ch)
+              return (
+                <SortableChallenge
+                  key={ch.id}
+                  ch={ch}
+                  percent={percent}
+                  g1={g1}
+                  g2={g2}
+                  onClick={() => navigate(`/challenge-detail/${ch.id}`)}
+                  onEdit={handleOpenEdit}
+                  onDelete={handleDelete}
+                />
+              )
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
 
-                      {/* Challenge title */}
-                      <div
-                        style={{ flex: 1, cursor: 'pointer' }}
-                        onClick={() => navigate(`/challenges/${challenge.id}`)}
-                      >
-                        {challenge.title}
-                      </div>
-
-                      {/* Edit/Delete */}
-                      <Button
-                        type='link'
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleOpenEdit(challenge)
-                        }}
-                      >
-                        <BiEditAlt />
-                      </Button>
-                      <Button
-                        type='link'
-                        danger
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDelete(challenge)
-                        }}
-                      >
-                        <RiDeleteBin5Line />
-                      </Button>
-                    </div>
-                  )}
-                </Draggable>
-              ))}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-      </DragDropContext>
-
+      {/* Modal */}
       <Modal
-        title={
-          editChallenge ? 'Challenge tahrirlash' : 'Yangi Challenge yaratish'
-        }
+        title={editChallenge ? 'Tahrirlash' : 'Yangi Challenge'}
         open={open}
         onOk={handleOk}
-        onCancel={() => setOpen(false)}
+        onCancel={() => {
+          setOpen(false)
+          form.resetFields()
+        }}
         okText={editChallenge ? 'Saqlash' : 'Yaratish'}
         cancelText='Bekor qilish'
       >
         <Form form={form} layout='vertical'>
           <Form.Item
             name='title'
-            label='Challenge nomi'
+            label='Nom'
             rules={[{ required: true, message: 'Nom kiriting!' }]}
           >
             <Input />
           </Form.Item>
-          <Form.Item name='startDate' label='Start date'>
+          <Form.Item name='startDate' label='Boshlanish'>
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name='endDate' label='End date'>
+          <Form.Item name='endDate' label='Tugash'>
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
         </Form>
