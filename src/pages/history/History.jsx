@@ -1,86 +1,79 @@
-import { useEffect, useState } from 'react'
-import { Calendar, Progress, Spin, Typography } from 'antd'
-import { useNavigate } from 'react-router-dom'
-import { collection, getDocs, query } from 'firebase/firestore'
-import dayjs from 'dayjs'
-import { db } from '../../firebase/firebase'
-import { useAuth } from '../../firebase/AuthContext'
-import './components/history.css' // yangi stillar shu faylda
+import { useEffect, useState }                      from 'react'
+import { Calendar, Progress, Spin, Typography }     from 'antd'
+import { useNavigate }                              from 'react-router-dom'
+import { collection, getDocs, query, where }        from 'firebase/firestore'
+import { db }                                       from '../../firebase/firebase'
+import { useAuth }                                  from '../../firebase/AuthContext'
+import dayjs                                        from 'dayjs'
+import './components/history.css'
 
 const { Title } = Typography
 
+/* --------------  GLASS + GRADIENT HELPERS  -------------- */
+const gradList = [
+  ['#667eea','#764ba2'],   // 100 %
+  ['#f093fb','#f5576c'],   // 75-99 %
+  ['#4facfe','#00f2fe'],   // 50-74 %
+  ['#43e97b','#38f9d7'],   // 25-49 %
+  ['#fa709a','#fee140'],   // 1-24 %
+  ['#a8edea','#fed6e3'],   // 0 %
+]
+
+const pickGrad = (p) => gradList[ p === 100 ? 0 : p >= 75 ? 1 : p >= 50 ? 2 : p >= 25 ? 3 : p >= 1 ? 4 : 5 ]
+
+/* --------------  MAIN COMPONENT  -------------- */
 function History() {
-  const { currentUser } = useAuth()
-  const userId = currentUser?.uid
-  const navigate = useNavigate()
+  const { currentUser }     = useAuth()
+  const userId              = currentUser?.uid
+  const navigate            = useNavigate()
+  const [data, setData]     = useState({})          // { YYYY-MM-DD : {completed,total} }
 
-  const [data, setData] = useState({}) // { "YYYY-MM-DD": { completed: 3, total: 5 } }
-
+  /* ----------  FETCH  ---------- */
   useEffect(() => {
     if (!userId) return
-    const fetchAllTasks = async () => {
-      const challengesRef = collection(db, 'users', userId, 'challenges')
-      const challengesSnap = await getDocs(challengesRef)
-
+    ;(async () => {
       const temp = {}
-
-      for (const chDoc of challengesSnap.docs) {
-        const chId = chDoc.id
-        const tasksRef = collection(db, 'users', userId, 'challenges', chId, 'tasks')
-        const snap = await getDocs(tasksRef)
-        snap.forEach((t) => {
-          const d = dayjs(t.data().date.toDate()).format('YYYY-MM-DD')
+      const chSnap = await getDocs(collection(db, 'users', userId, 'challenges'))
+      for (const chDoc of chSnap.docs) {
+        const tRef = collection(db, 'users', userId, 'challenges', chDoc.id, 'tasks')
+        const tSnap = await getDocs(tRef)
+        tSnap.forEach((t) => {
+          const d   = dayjs(t.data().date.toDate()).format('YYYY-MM-DD')
           if (!temp[d]) temp[d] = { completed: 0, total: 0 }
           temp[d].total += 1
           if (t.data().completed) temp[d].completed += 1
         })
       }
       setData(temp)
-    }
-    fetchAllTasks()
+    })()
   }, [userId])
 
+  /* ----------  CALENDAR CELL  ---------- */
   const dateCellRender = (value) => {
-    const key = value.format('YYYY-MM-DD')
-    const info = data[key]
+    const key   = value.format('YYYY-MM-DD')
+    const info  = data[key]
     if (!info || info.total === 0) return null
-    const percent = Math.round((info.completed / info.total) * 100)
 
-    // Rang klassini tanlab olamiz
-    const cellBg =
-      percent === 100
-        ? 'bg-gradient-to-br from-emerald-500 to-green-400'
-        : percent >= 50
-        ? 'bg-gradient-to-br from-amber-500 to-orange-400'
-        : 'bg-gradient-to-br from-rose-500 to-red-500'
+    const percent = Math.round((info.completed / info.total) * 100)
+    const [g1, g2] = pickGrad(percent)
 
     return (
-      <div className={`calendar-cell ${cellBg}`}>
-        {/* Neon Progress */}
-        <Progress
-          percent={percent}
-          size='small'
-          showInfo={false}
-          strokeColor='#ffffff'
-          trailColor='rgba(255,255,255,0.2)'
-        />
+      <div className='calendar-cell' style={{ background: `linear-gradient(135deg,${g1},${g2})` }}>
+        <Progress percent={percent} size='small' showInfo={false} strokeColor='#fff' trailColor='rgba(255,255,255,.2)' />
         <span className='percent-text'>{percent}%</span>
       </div>
     )
   }
 
-  const onSelect = (date) => {
-    const key = date.format('YYYY-MM-DD')
-    navigate(`/day-detail/${key}`)
-  }
+  /* ----------  NAVIGATE  ---------- */
+  const onSelect = (date) => navigate(`/day-detail/${date.format('YYYY-MM-DD')}`)
 
+  /* ----------  RENDER  ---------- */
   return (
-    <div className='min-h-screen history-page px-6 py-8'>
-      <Title level={2} className='history-title'>
-        Tarix (History)
-      </Title>
+    <div className='history-page'>
+      <h1 className='history-title'>Tarix (History)</h1>
 
-      <div className='max-w-4xl mx-auto calendar-wrapper'>
+      <div className='calendar-wrapper'>
         <Calendar
           dateCellRender={dateCellRender}
           onSelect={onSelect}

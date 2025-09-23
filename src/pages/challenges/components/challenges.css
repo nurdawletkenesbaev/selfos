@@ -1,4 +1,4 @@
-/* orqa fon */
+/* ========== ASOSIY ========== */
 .challenges-page {
   min-height: 100vh;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
@@ -88,6 +88,38 @@
   padding: 0 8px;
 }
 
+/* ===== KUN & % – SIZ AYTGAN JOY ===== */
+.fire-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 6px;
+  line-height: 1;
+}
+.percent-circle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.percent-svg {
+  width: 100%;
+  height: 100%;
+}
+
 /* stats */
 .stats-row {
   display: flex;
@@ -113,22 +145,32 @@
   transform-origin: 50% 50%;
 }
 
-/* actions */
-.actions {
+/* ========== DEVICE-SPECIFIC EDIT/DELETE ========== */
+/* touch – edge slide */
+.challenge-card.slide {
+  transform: translateX(-60px);
+}
+.floating-actions {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  right: 8px;
+  top: 8px;
   display: flex;
-  gap: 6px;
-  color: #94a3b8;
-  font-size: 18px;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
-.actions svg {
-  cursor: pointer;
-  transition: color 0.2s ease;
+.challenge-card.slide .floating-actions {
+  opacity: 1;
 }
-.actions svg:hover {
-  color: #fff;
+
+/* mouse – hover */
+@media (hover: hover) {
+  .floating-actions {
+    opacity: 0;
+  }
+  .challenge-card:hover .floating-actions {
+    opacity: 1;
+  }
 }
 
 /* drag jiggle */

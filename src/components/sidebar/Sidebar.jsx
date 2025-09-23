@@ -101,12 +101,12 @@ const Sidebar = () => {
       {isMobile < 768 ? (
         <div className='bg-[#001529]'>
           <Button
-            primary
+            type='primary'
             icon={<MenuOutlined />}
             onClick={() => setVisible(true)}
             style={{ position: 'fixed', top: 18, right: 90, zIndex: 1000 }}
           />
-          <Dropdown overlay={menu} trigger={['click']}>
+          <Dropdown menu={{ items: menu }} trigger={['click']}>
             {/* <Button icon={<MoreOutlined />} /> */}
           </Dropdown>
         </div>

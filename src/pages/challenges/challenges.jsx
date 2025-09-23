@@ -1,4 +1,3 @@
-import { AiOutlineEdit } from 'react-icons/ai'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -10,12 +9,13 @@ import {
   deleteDoc,
   query,
   orderBy,
-  Timestamp,
+  where,
 } from 'firebase/firestore'
 import { db } from '../../firebase/firebase'
 import { Button, Modal, Form, Input, DatePicker, message } from 'antd'
-import { CgMathPlus } from 'react-icons/cg'
 import { RiDeleteBin5Line } from 'react-icons/ri'
+import { BiEditAlt } from 'react-icons/bi'
+import { CgMathPlus } from 'react-icons/cg'
 import {
   DndContext,
   closestCenter,
@@ -34,7 +34,6 @@ import { useAuth } from '../../firebase/AuthContext'
 import dayjs from 'dayjs'
 import './components/challenges.css'
 
-// const { Text } = Typography0
 const { confirm } = Modal
 
 /* gradientlar */
@@ -47,8 +46,9 @@ const gradientMap = [
   ['#a8edea', '#fed6e3'],
 ]
 
-/* 1 ta sortable kartochka */
-function SortableChallenge({ ch, percent, g1, g2, onClick, onEdit, onDelete }) {
+/* 1 ta sortable kartochka – faqat percent hisoblanadi */
+function SortableChallenge({ ch, g1, g2, onClick, onEdit, onDelete, userId }) {
+  const [percent, setPercent] = useState(0)
   const {
     attributes,
     listeners,
@@ -57,20 +57,85 @@ function SortableChallenge({ ch, percent, g1, g2, onClick, onEdit, onDelete }) {
     transition,
     isDragging,
   } = useSortable({ id: ch.id })
+  const style = { transform: CSS.Transform.toString(transform), transition }
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+  /* ========== REAL % – start→bugun ========== */
+  useEffect(() => {
+    if (!ch.startDate) {
+      setPercent(0)
+      return
+    }
+    const start = dayjs(ch.startDate.toDate())
+    const today = dayjs().endOf('day')
+
+    const tasksRef = collection(
+      db,
+      'users',
+      userId,
+      'challenges',
+      ch.id,
+      'tasks'
+    )
+    const q = query(
+      tasksRef,
+      where('date', '>=', start.toDate()),
+      where('date', '<=', today.toDate())
+    )
+    getDocs(q).then((snap) => {
+      const total = snap.size
+      if (total === 0) {
+        setPercent(0)
+        return
+      }
+      const completed = snap.docs.filter((d) => d.data().completed).length
+      setPercent(Math.round((completed / total) * 100))
+    })
+  }, [ch, userId])
+
+  /* ========== KUN ========== */
+  const day = ch.startDate
+    ? dayjs().diff(dayjs(ch.startDate.toDate()), 'day') + 1
+    : 0
+
+  /* ========== DEVICE DETECT + EDGE SLIDE / HOVER ========== */
+  const [isTouch, setIsTouch] = useState(false)
+  const [slide, setSlide] = useState(false)
+
+  useEffect(() => {
+    const onTouch = () => setIsTouch(true)
+    window.addEventListener('touchstart', onTouch, { once: true })
+    return () => window.removeEventListener('touchstart', onTouch)
+  }, [])
+
+  /* touch – edge slide */
+  const onTouchStart = (e) => {
+    if (!isTouch) return
+    const touch = e.touches[0]
+    let startX = touch.clientX
+    const onTouchMove = (e) => {
+      const diff = e.touches[0].clientX - startX
+      if (diff < -30) setSlide(true)
+      if (diff > 10) setSlide(false)
+    }
+    const onTouchEnd = () => {
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+    }
+    window.addEventListener('touchmove', onTouchMove)
+    window.addEventListener('touchend', onTouchEnd)
   }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`challenge-card ${isDragging ? 'dragging' : ''}`}
+      className={`challenge-card ${isDragging ? 'dragging' : ''} ${
+        isTouch ? (slide ? 'slide' : '') : ''
+      }`}
       {...attributes}
       {...listeners}
       onClick={onClick}
+      onTouchStart={isTouch ? onTouchStart : undefined}
     >
       <div className='glow' />
       <div
@@ -81,7 +146,7 @@ function SortableChallenge({ ch, percent, g1, g2, onClick, onEdit, onDelete }) {
       </div>
 
       <div className='stats-row'>
-        <span className='stat-val'>🔥 {ch.streak || 0} d</span>
+        <span className='stat-val'>🔥 {day} d</span>
         <span className='stat-val'>⚡ {percent}%</span>
       </div>
 
@@ -114,8 +179,9 @@ function SortableChallenge({ ch, percent, g1, g2, onClick, onEdit, onDelete }) {
         </defs>
       </svg>
 
-      <div className='actions'>
-        <AiOutlineEdit
+      {/* ========== EDIT / DELETE – faqat kerakda ========== */}
+      <div className='floating-actions'>
+        <BiEditAlt
           onClick={(e) => {
             e.stopPropagation()
             onEdit(ch)
@@ -191,7 +257,6 @@ function Challenges({ userId }) {
       }
       setOpen(false)
       form.resetFields()
-      // refresh
       const snap = await getDocs(
         query(
           collection(db, `users/${userId}/challenges`),
@@ -287,15 +352,14 @@ function Challenges({ userId }) {
           <div className='cards-grid'>
             {challenges.map((ch, idx) => {
               const [g1, g2] = gradientMap[idx % gradientMap.length]
-              const percent = calcPercent(ch)
               return (
                 <SortableChallenge
                   key={ch.id}
                   ch={ch}
-                  percent={percent}
                   g1={g1}
                   g2={g2}
-                  onClick={() => navigate(`/challenge-detail/${ch.id}`)}
+                  userId={userId}
+                  onClick={() => navigate(`/challenges/${ch.id}`)}
                   onEdit={handleOpenEdit}
                   onDelete={handleDelete}
                 />
