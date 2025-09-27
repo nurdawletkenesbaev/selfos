@@ -23,7 +23,6 @@ const Header = () => {
             icon={<UserOutlined style={{ color: '#4096ff' }} />}
             style={{
               cursor: 'pointer',
-              borderRadius: '1px',
               borderColor: '#4096ff',
               borderRadius: '50%',
             }}

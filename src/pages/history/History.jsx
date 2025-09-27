@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Calendar, Progress, Spin, Typography } from 'antd'
 import { useNavigate } from 'react-router-dom'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../../firebase/firebase'
 import { useAuth } from '../../firebase/AuthContext'
 import dayjs from 'dayjs'
@@ -18,7 +18,6 @@ const gradList = [
   ['#f55f57', '#fed540'], // 1-24 %
   ['#de1313', '#f62d2d'], // 0 %
 ]
-const rrr = <div className='bg-[#00ff00] text-[#00ff00]'></div>
 const pickGrad = (p) =>
   gradList[
     p === 100 ? 0 : p >= 75 ? 1 : p >= 50 ? 2 : p >= 25 ? 3 : p >= 1 ? 4 : 5

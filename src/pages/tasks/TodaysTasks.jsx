@@ -1,3 +1,4 @@
+// TodaysTasks.jsx
 import { useEffect, useState } from 'react'
 import {
   collection,
@@ -8,6 +9,7 @@ import {
   deleteDoc,
   doc,
   orderBy,
+  Timestamp, // qo'shdik
 } from 'firebase/firestore'
 import { db } from '../../firebase/firebase'
 import {
@@ -16,7 +18,9 @@ import {
   message,
   Modal,
   Spin,
-  Progress, // 🔥 Progress qo'shdik
+  Progress,
+  Form,    // qo'shdik
+  Input,   // qo'shdik
 } from 'antd'
 import { RiDeleteBin5Line } from 'react-icons/ri'
 import { MdCheckCircle, MdRadioButtonUnchecked } from 'react-icons/md'
@@ -36,6 +40,13 @@ function TodaysTasks() {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingTaskId, setLoadingTaskId] = useState(null)
+
+  // ===== Qo'shilgan state va form =====
+  const [openModal, setOpenModal] = useState(false)
+  const [editTask, setEditTask] = useState(null)
+  const [modalLoading, setModalLoading] = useState(false)
+  const [form] = Form.useForm()
+  // ====================================
 
   const fetchTodaysTasks = async (showLoader = true) => {
     if (!userId) return
@@ -134,9 +145,8 @@ function TodaysTasks() {
         ),
         { completed: newStatus }
       )
-      // 2. Muvaffaqiyatli bo‘lsa – hech nima qilmaymiz (state allaqachon to‘g‘ri)
     } catch (err) {
-      // 3. Xato bo‘lsa – rollback
+      console.log(err)
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, completed: !newStatus } : t))
       )
@@ -144,6 +154,55 @@ function TodaysTasks() {
     } finally {
       setLoadingTaskId(null)
     }
+  }
+
+  // Edit modal handlers
+  const handleOpenEdit = (task) => {
+    setEditTask(task)
+    setOpenModal(true)
+  }
+
+  useEffect(() => {
+    if (!openModal) return
+    // agar editTask mavjud bo'lsa formga qiymat qo'yamiz
+    if (editTask) {
+      form.setFieldsValue({
+        taskName: editTask.taskName || '',
+      })
+    } else {
+      form.resetFields()
+    }
+  }, [openModal, editTask, form])
+
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields()
+      if (!userId || !editTask) return
+      setModalLoading(true)
+      await updateDoc(
+        doc(db, 'users', userId, 'challenges', editTask.challengeId, 'tasks', editTask.id),
+        {
+          taskName: values.taskName,
+          updatedAt: Timestamp.now(),
+        }
+      )
+      message.success('Task yangilandi!')
+      fetchTodaysTasks()
+      setOpenModal(false)
+      setEditTask(null)
+      form.resetFields()
+    } catch (err) {
+      console.error(err)
+      message.error('Taskni yangilashda xatolik!')
+    } finally {
+      setModalLoading(false)
+    }
+  }
+
+  const handleCancelModal = () => {
+    setOpenModal(false)
+    setEditTask(null)
+    form.resetFields()
   }
 
   // 🔥 PROGRESS hisoblash
@@ -206,10 +265,7 @@ function TodaysTasks() {
                     <Button
                       type='text'
                       size='small'
-                      onClick={() => {
-                        setEditTask(task)
-                        setOpenModal(true)
-                      }}
+                      onClick={() => handleOpenEdit(task)}
                       icon={<BiEditAlt size={18} />}
                     />
                     <Button
@@ -237,6 +293,29 @@ function TodaysTasks() {
             </Text>
           </div>
         )}
+
+        {/* Edit Modal */}
+        <Modal
+          title='Taskni tahrirlash'
+          open={openModal}
+          onOk={handleModalOk}
+          onCancel={handleCancelModal}
+          okText='Saqlash'
+          cancelText='Bekor qilish'
+          confirmLoading={modalLoading}
+          destroyOnClose={false}
+          maskClosable={false}
+        >
+          <Form form={form} layout='vertical' className='mt-2'>
+            <Form.Item
+              name='taskName'
+              label='Task nomi'
+              rules={[{ required: true, message: 'Nom kiriting!' }]}
+            >
+              <Input size='large' placeholder='Masalan: 30 daqiqa yugurish' />
+            </Form.Item>
+          </Form>
+        </Modal>
       </div>
     </div>
   )

@@ -1,5 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react'
-import { Button, Select, Space, InputNumber, Typography, message } from 'antd'
+import React, { useEffect, useState } from 'react'
+import {
+  Button,
+  Select,
+  Space,
+  InputNumber,
+  Typography,
+  message,
+  Modal,
+  Form,
+  Input,
+} from 'antd'
 import {
   PlusOutlined,
   PlayCircleOutlined,
@@ -20,36 +30,40 @@ import { db, auth } from '../../firebase/firebase'
 
 const { Title, Text } = Typography
 
+const DEFAULT = { work: 25, short: 5, long: 15, longAfter: 4 }
+
 export default function Pomodoro() {
   const user = auth.currentUser
   const uid = user?.uid
-  const audioRef = useRef(null) // ovoz uchun
 
-  // --- state ---
+  /* ----------------------- state ----------------------- */
   const [tasks, setTasks] = useState([])
   const [selected, setSelected] = useState(null)
-  const [minutes, setMinutes] = useState(30) // default 30
+  const [minutes, setMinutes] = useState(DEFAULT.work)
   const [seconds, setSeconds] = useState(0)
   const [running, setRunning] = useState(false)
   const [mode, setMode] = useState('work') // 'work' | 'break'
-  const [breakLen, setBreakLen] = useState(5) // break daqiqa
+  const [breakLen, setBreakLen] = useState(DEFAULT.short)
 
-  // --- realtime tasks ---
+  /* Ant modal & form */
+  const [openModal, setOpenModal] = useState(false)
+  const [form] = Form.useForm()
+
+  /* ----------------------- realtime tasks ----------------------- */
   useEffect(() => {
     if (!uid) return
     const unsub = onSnapshot(
-      collection(db, 'users', uid, 'pomodoro'),
+      collection(db, 'users', uid, 'pomodorTasks'),
       (snap) => {
         const arr = []
         snap.forEach((d) => arr.push({ id: d.id, ...d.data() }))
-        arr.sort((a, b) => b.usageNumber - a.usageNumber)
         setTasks(arr)
       }
     )
     return unsub
   }, [uid])
 
-  // --- timer engine ---
+  /* ----------------------- timer engine ----------------------- */
   useEffect(() => {
     if (!running) return
     const id = setInterval(() => {
@@ -59,16 +73,15 @@ export default function Pomodoro() {
             if (m === 0) {
               setRunning(false)
               playDing()
+              /* avtomatik almashish */
               if (mode === 'work') {
                 message.success('Pomodoro yakunlandi! Tanaffus vaqti.')
                 setMode('break')
                 setMinutes(breakLen)
-                setSeconds(0)
               } else {
                 message.success('Tanaffus yakunlandi! Yangi pomodoro.')
                 setMode('work')
-                setMinutes(30)
-                setSeconds(0)
+                setMinutes(DEFAULT.work)
               }
               return m
             }
@@ -82,23 +95,77 @@ export default function Pomodoro() {
     return () => clearInterval(id)
   }, [running, mode, breakLen])
 
-  // --- actions ---
+  /* ----------------------- actions ----------------------- */
   const handleStart = () => setRunning(true)
   const handlePause = () => setRunning(false)
   const handleReset = () => {
     setRunning(false)
     setMode('work')
-    setMinutes(30)
+    setMinutes(DEFAULT.work)
     setSeconds(0)
   }
-  const handleSkip = () => {
+
+  const playDing = () => {
+    try {
+      new Audio('/ding.mp3').play()
+    } catch {
+      console.log('.')
+    }
+  }
+
+  /* Yangi task qo‘shish – Ant Modal + Form */
+  const addNewTask = () => {
+    setOpenModal(true)
+  }
+  const handleAddOk = async () => {
+    try {
+      const values = await form.validateFields()
+      if (!uid) return
+      await addDoc(collection(db, 'users', uid, 'pomodorTasks'), {
+        taskName: values.taskName.trim(),
+        counter: 0,
+      })
+      message.success('Task qo‘shildi!')
+      form.resetFields()
+      setOpenModal(false)
+    } catch (e) {
+      console.log(e)
+      message.error('Xatolik yuz berdi')
+    }
+  }
+  const handleAddCancel = () => {
+    form.resetFields()
+    setOpenModal(false)
+  }
+
+  /* skip & finish – statistikaga yozadi + counter ++ */
+  const handleSkip = async () => {
     setRunning(false)
+    if (mode === 'work' && selected?.id) {
+      try {
+        await addDoc(collection(db, 'users', uid, 'pomodoros'), {
+          taskId: selected.id,
+          startTime: serverTimestamp(),
+          endTime: serverTimestamp(),
+          plannedDuration: minutes,
+          actualFocusMinutes: 0,
+          status: 'skipped',
+        })
+        await updateDoc(doc(db, 'users', uid, 'pomodorTasks', selected.id), {
+          counter: increment(1),
+        })
+        message.info('Pomodoro skipped – statistikaga yozildi')
+      } catch (e) {
+        console.log(e)
+        message.error('Skip yozishda xatolik')
+      }
+    }
     if (mode === 'work') {
       setMode('break')
       setMinutes(breakLen)
     } else {
       setMode('work')
-      setMinutes(30)
+      setMinutes(DEFAULT.work)
     }
     setSeconds(0)
   }
@@ -115,45 +182,26 @@ export default function Pomodoro() {
     }
     await addDoc(collection(db, 'users', uid, 'pomodoros'), data)
     if (selected?.id) {
-      await updateDoc(doc(db, 'users', uid, 'pomodoro', selected.id), {
-        usageNumber: increment(1),
+      await updateDoc(doc(db, 'users', uid, 'pomodorTasks', selected.id), {
+        counter: increment(1),
       })
     }
+    message.success('Pomodoro yakunlandi va saqlandi!')
   }
 
-  // ovoz
-  const playDing = () => {
-    try {
-      const audio = new Audio('/ding.mp3') // public papkada bo‘lsin
-      audio.play()
-    } catch {}
-  }
-
-  // --- add new task ---
-  const addNewTask = async () => {
-    const name = prompt('Yangi task nomi:')
-    if (!name || !uid) return
-    await addDoc(collection(db, 'users', uid, 'pomodoro'), {
-      taskName: name.trim(),
-      usageNumber: 0,
-    })
-    message.success('Task qo‘shildi!')
-  }
-
-  // --- UI ---
+  /* ----------------------- UI ----------------------- */
   return (
     <div style={{ maxWidth: 480, margin: '40px auto', textAlign: 'center' }}>
-      <audio ref={audioRef} src='/ding.mp3' preload='auto' />
       <Title level={2}>{mode === 'work' ? '🍅 Pomodoro' : '☕ Tanaffus'}</Title>
 
-      {/* Task tanlash (faqat work rejimida) */}
+      {/* Task tanlash (faqat work) */}
       {mode === 'work' && (
         <Select
           style={{ width: '100%', marginBottom: 24 }}
           placeholder='Vazifani tanlang'
           value={selected?.id}
           onChange={(id) => setSelected(tasks.find((t) => t.id === id))}
-          popupRender={(menu) => (
+          dropdownRender={(menu) => (
             <>
               {menu}
               <div style={{ padding: 8, borderTop: '1px solid #f0f0f0' }}>
@@ -176,7 +224,7 @@ export default function Pomodoro() {
         </Select>
       )}
 
-      {/* Vaqtni o‘zgartirish (faqat to‘xtagan holatda) */}
+      {/* Vaqtni sozlash (to‘xtagan holatda) */}
       {!running && seconds === 0 && (
         <div style={{ marginBottom: 16 }}>
           <Text>{mode === 'work' ? 'Ish vaqti:' : 'Tanaffus:'}</Text>
@@ -227,7 +275,7 @@ export default function Pomodoro() {
         </Button>
       </Space>
 
-      {/* Tugaganida saqlash (avtomat) */}
+      {/* Tugaganida saqlash */}
       {seconds === 0 && !running && mode === 'work' && (
         <div style={{ marginTop: 16 }}>
           <Button type='dashed' onClick={handleFinish}>
@@ -235,6 +283,26 @@ export default function Pomodoro() {
           </Button>
         </div>
       )}
+
+      {/* Ant Modal – yangi task qo‘shish */}
+      <Modal
+        title='Yangi task qo‘shish'
+        open={openModal}
+        onOk={handleAddOk}
+        onCancel={handleAddCancel}
+        okText='Saqlash'
+        cancelText='Bekor qilish'
+      >
+        <Form form={form} layout='vertical'>
+          <Form.Item
+            name='taskName'
+            label='Task nomi'
+            rules={[{ required: true, message: 'Iltimos nom kiriting' }]}
+          >
+            <Input placeholder='Masalan: IELTS writing' />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

@@ -94,7 +94,6 @@ const Sidebar = () => {
   ]
   const menu = <Menu items={list} />
   const [visible, setVisible] = useState(false)
-  const [open, setOpen] = useState(false)
   const isMobile = window.innerWidth
   return (
     <>
@@ -103,7 +102,7 @@ const Sidebar = () => {
           <Button
             type='primary'
             icon={<MenuOutlined />}
-            onClick={() => setVisible(true)}
+            onClick={() => setVisible(!visible)}
             style={{ position: 'fixed', top: 18, right: 90, zIndex: 1000 }}
           />
           <Dropdown menu={{ items: menu }} trigger={['click']}>

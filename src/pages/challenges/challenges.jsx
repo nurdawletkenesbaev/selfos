@@ -30,7 +30,6 @@ import {
 } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useAuth } from '../../firebase/AuthContext'
 import dayjs from 'dayjs'
 import './components/challenges.css'
 
@@ -322,7 +321,6 @@ function Challenges({ userId }) {
   }
 
   /* dummy progress */
-  const calcPercent = (ch) => ch.dailyProgress || 0
 
   return (
     <div className='challenges-page'>

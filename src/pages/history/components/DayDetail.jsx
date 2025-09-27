@@ -106,6 +106,7 @@ function DayDetail() {
           t.id === task.id ? { ...t, completed: !newStatus } : t
         )
       )
+      console.log(err)
       message.error('Yangilashda xatolik!')
     } finally {
       setLoadingTaskId(null)
