@@ -1,11 +1,89 @@
 /* challengeDetailCss.css */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
 
 .ant-progress-line {
   margin: 0;
   padding: 0 16px 12px;
 }
-.ant-modal-mask { background: rgba(0,0,0,.45); }
-.ant-modal-content { border-radius: 16px; overflow: hidden; }
+
+.ant-modal-mask {
+  background: rgba(0, 0, 0, 0.45);
+}
+.ant-modal-content {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* ---------------- MOBILE OPTIMIZATION ---------------- */
+
+/* Ekran 640px va kichik bo'lsa */
+@media (max-width: 640px) {
+  /* Header yanada ixcham bo‘lsin */
+  header .h-16 {
+    height: 56px !important;
+  }
+  header .px-4 {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  header h5 {
+    font-size: 1rem !important;
+  }
+  header .text-sm {
+    font-size: 0.85rem !important;
+  }
+
+  /* Body paddings */
+  main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: 16px !important;
+  }
+
+  /* Har bir task card ichidagi spacing kamaytiriladi */
+  section.p-4 {
+    padding: 12px !important;
+  }
+  section .space-y-3 > div {
+    padding: 8px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Task text va icon o‘lchamlarini kichikroq qilamiz */
+  section p.font-medium {
+    font-size: 0.9rem !important;
+  }
+  section .text-xs {
+    font-size: 0.7rem !important;
+  }
+
+  /* FAB tugma kichikroq va biroz yuqoriroq bo‘lsin */
+  .fixed.bottom-6.right-6 {
+    bottom: 16px !important;
+    right: 16px !important;
+    width: 52px !important;
+    height: 52px !important;
+  }
+  .fixed.bottom-6.right-6 svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  /* Modal paddings kichikroq */
+  .ant-modal {
+    max-width: 92% !important;
+    margin: 0 auto;
+  }
+  .ant-modal-body {
+    padding: 16px !important;
+  }
+}

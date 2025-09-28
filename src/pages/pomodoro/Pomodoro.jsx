@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from "react"
 import {
   Button,
   Select,
@@ -9,14 +9,14 @@ import {
   Modal,
   Form,
   Input,
-} from 'antd'
+} from "antd"
 import {
   PlusOutlined,
   PlayCircleOutlined,
   PauseCircleOutlined,
   RedoOutlined,
   ArrowRightOutlined,
-} from '@ant-design/icons'
+} from "@ant-design/icons"
 import {
   collection,
   doc,
@@ -25,8 +25,8 @@ import {
   updateDoc,
   serverTimestamp,
   increment,
-} from 'firebase/firestore'
-import { db, auth } from '../../firebase/firebase'
+} from "firebase/firestore"
+import { db, auth } from "../../firebase/firebase"
 
 const { Title, Text } = Typography
 
@@ -36,24 +36,27 @@ export default function Pomodoro() {
   const user = auth.currentUser
   const uid = user?.uid
 
-  /* ----------------------- state ----------------------- */
   const [tasks, setTasks] = useState([])
   const [selected, setSelected] = useState(null)
   const [minutes, setMinutes] = useState(DEFAULT.work)
   const [seconds, setSeconds] = useState(0)
   const [running, setRunning] = useState(false)
-  const [mode, setMode] = useState('work') // 'work' | 'break'
+  const [mode, setMode] = useState("work")
   const [breakLen, setBreakLen] = useState(DEFAULT.short)
 
-  /* Ant modal & form */
   const [openModal, setOpenModal] = useState(false)
   const [form] = Form.useForm()
 
-  /* ----------------------- realtime tasks ----------------------- */
+  // NEW: current active pomodoro doc id (so we update the same doc on finish/skip)
+  const [currentPomodoroId, setCurrentPomodoroId] = useState(null)
+  // Freeze planned duration for session (so even if minutes state changes afterwards, we keep original planned)
+  const [sessionPlannedDuration, setSessionPlannedDuration] = useState(null)
+
+  /* === FIREBASE TASKS LISTENER === */
   useEffect(() => {
     if (!uid) return
     const unsub = onSnapshot(
-      collection(db, 'users', uid, 'pomodorTasks'),
+      collection(db, "users", uid, "pomodorTasks"), // path to'g'ri
       (snap) => {
         const arr = []
         snap.forEach((d) => arr.push({ id: d.id, ...d.data() }))
@@ -63,7 +66,7 @@ export default function Pomodoro() {
     return unsub
   }, [uid])
 
-  /* ----------------------- timer engine ----------------------- */
+  /* === TIMER === */
   useEffect(() => {
     if (!running) return
     const id = setInterval(() => {
@@ -71,16 +74,18 @@ export default function Pomodoro() {
         if (s === 0) {
           setMinutes((m) => {
             if (m === 0) {
+              // timer finished
               setRunning(false)
               playDing()
-              /* avtomatik almashish */
-              if (mode === 'work') {
-                message.success('Pomodoro yakunlandi! Tanaffus vaqti.')
-                setMode('break')
+              if (mode === "work") {
+                message.success("Pomodoro yakunlandi! Tanaffus vaqti.")
+                // finish the current pomodoro (UPDATE existing doc, do NOT create a new one)
+                finishPomodoroSafely()
+                setMode("break")
                 setMinutes(breakLen)
               } else {
-                message.success('Tanaffus yakunlandi! Yangi pomodoro.')
-                setMode('work')
+                message.success("Tanaffus yakunlandi! Yangi pomodoro.")
+                setMode("work")
                 setMinutes(DEFAULT.work)
               }
               return m
@@ -95,42 +100,75 @@ export default function Pomodoro() {
     return () => clearInterval(id)
   }, [running, mode, breakLen])
 
-  /* ----------------------- actions ----------------------- */
-  const handleStart = () => setRunning(true)
+  /* === FUNCTIONS === */
+  const handleStart = async () => {
+    if (!selected?.id) {
+      message.warning("Iltimos, task tanlang!")
+      return
+    }
+    if (!uid) {
+      message.error("Tizimga kirilmagan yoki foydalanuvchi yo'q")
+      return
+    }
+    if (running) return
+
+    // Freeze the planned duration for this session
+    const planned = minutes
+    try {
+      // Create a single pomodoro document at start and keep its id
+      const docRef = await addDoc(collection(db, "users", uid, "pomodoro"), {
+        taskId: selected.id,
+        plannedDuration: planned,
+        startTime: serverTimestamp(),
+        status: "running",
+      })
+      setCurrentPomodoroId(docRef.id)
+      setSessionPlannedDuration(planned)
+      // ensure timer uses the frozen planned value
+      setMinutes(planned)
+      setSeconds(0)
+      setRunning(true)
+    } catch (e) {
+      console.error("Pomodoro start error:", e)
+      message.error("Pomodoro boshlashda xatolik yuz berdi")
+    }
+  }
+
   const handlePause = () => setRunning(false)
+
   const handleReset = () => {
+    // Reset local timer and clear current session (do not modify server data here)
     setRunning(false)
-    setMode('work')
+    setMode("work")
     setMinutes(DEFAULT.work)
     setSeconds(0)
+    // Do not auto-update or delete server record here to avoid accidental double writes.
+    // If you want to cancel a running pomodoro session and mark it skipped, use handleSkip.
   }
 
   const playDing = () => {
     try {
-      new Audio('/ding.mp3').play()
-    } catch {
-      console.log('.')
-    }
+      new Audio("/ding.mp3").play()
+    } catch {}
   }
 
-  /* Yangi task qo‘shish – Ant Modal + Form */
-  const addNewTask = () => {
-    setOpenModal(true)
-  }
+  const addNewTask = () => setOpenModal(true)
+
   const handleAddOk = async () => {
     try {
       const values = await form.validateFields()
       if (!uid) return
-      await addDoc(collection(db, 'users', uid, 'pomodorTasks'), {
+      await addDoc(collection(db, "users", uid, "pomodorTasks"), {
         taskName: values.taskName.trim(),
         counter: 0,
+        createdAt: serverTimestamp(),
       })
-      message.success('Task qo‘shildi!')
+      message.success("Task qo‘shildi!")
       form.resetFields()
       setOpenModal(false)
     } catch (e) {
       console.log(e)
-      message.error('Xatolik yuz berdi')
+      message.error("Xatolik yuz berdi")
     }
   }
   const handleAddCancel = () => {
@@ -138,78 +176,100 @@ export default function Pomodoro() {
     setOpenModal(false)
   }
 
-  /* skip & finish – statistikaga yozadi + counter ++ */
+  // When user clicks skip: update the existing pomodoro doc (if exists) as skipped
   const handleSkip = async () => {
+    if (!running) {
+      // If not running, nothing to skip
+      setSeconds(0)
+      setMode("work")
+      setMinutes(DEFAULT.work)
+      return
+    }
     setRunning(false)
-    if (mode === 'work' && selected?.id) {
-      try {
-        await addDoc(collection(db, 'users', uid, 'pomodoros'), {
-          taskId: selected.id,
-          startTime: serverTimestamp(),
+    try {
+      if (currentPomodoroId) {
+        // update existing doc
+        await updateDoc(doc(db, "users", uid, "pomodoro", currentPomodoroId), {
           endTime: serverTimestamp(),
-          plannedDuration: minutes,
+          plannedDuration: sessionPlannedDuration ?? minutes,
           actualFocusMinutes: 0,
-          status: 'skipped',
+          status: "skipped",
         })
-        await updateDoc(doc(db, 'users', uid, 'pomodorTasks', selected.id), {
+        // increment task counter (optional)
+        await updateDoc(doc(db, "users", uid, "pomodorTasks", selected.id), {
           counter: increment(1),
         })
-        message.info('Pomodoro skipped – statistikaga yozildi')
-      } catch (e) {
-        console.log(e)
-        message.error('Skip yozishda xatolik')
+        message.info("Pomodoro skipped – statistikaga yozildi")
+        // clear current session id
+        setCurrentPomodoroId(null)
+        setSessionPlannedDuration(null)
+      } else {
+        // No start record — do nothing to avoid duplicate entries
+        console.warn("Skip: hech qanday start yozuvi topilmadi, serverda yangi yozuv yaratilmaydi.")
+        message.warning("Start yozuvi topilmadi — skip serverga yozilmadi.")
       }
-    }
-    if (mode === 'work') {
-      setMode('break')
+    } catch (e) {
+      console.error("Skip error:", e)
+      message.error("Skip yozishda xatolik")
+    } finally {
+      setSeconds(0)
+      setMode("break")
       setMinutes(breakLen)
-    } else {
-      setMode('work')
-      setMinutes(DEFAULT.work)
     }
-    setSeconds(0)
   }
 
-  const handleFinish = async () => {
-    if (!uid || mode !== 'work') return
-    const data = {
-      taskId: selected?.id || null,
-      startTime: serverTimestamp(),
-      endTime: serverTimestamp(),
-      plannedDuration: minutes,
-      actualFocusMinutes: minutes,
-      status: 'completed',
+  // finishPomodoroSafely updates the single doc created at start. It will NOT create a new doc.
+  const finishPomodoroSafely = async () => {
+    if (!uid) {
+      console.warn("No uid")
+      return
     }
-    await addDoc(collection(db, 'users', uid, 'pomodoros'), data)
-    if (selected?.id) {
-      await updateDoc(doc(db, 'users', uid, 'pomodorTasks', selected.id), {
+    if (!currentPomodoroId) {
+      // No start doc — avoid creating a duplicate; just warn.
+      console.warn("finish called but no currentPomodoroId (no start record). No server update to avoid duplicates.")
+      return
+    }
+    try {
+      const actualMinutes = sessionPlannedDuration ?? minutes
+      await updateDoc(doc(db, "users", uid, "pomodoro", currentPomodoroId), {
+        endTime: serverTimestamp(),
+        plannedDuration: sessionPlannedDuration ?? minutes,
+        actualFocusMinutes: actualMinutes,
+        status: "completed",
+      })
+      // increment task counter
+      await updateDoc(doc(db, "users", uid, "pomodorTasks", selected.id), {
         counter: increment(1),
       })
+      message.success("Pomodoro yakunlandi va saqlandi!")
+    } catch (e) {
+      console.error("Finish error:", e)
+      message.error("Pomodoro saqlashda xatolik")
+    } finally {
+      // clear session id so next start creates a fresh doc
+      setCurrentPomodoroId(null)
+      setSessionPlannedDuration(null)
     }
-    message.success('Pomodoro yakunlandi va saqlandi!')
   }
 
-  /* ----------------------- UI ----------------------- */
+  /* === UI === */
   return (
-    <div style={{ maxWidth: 480, margin: '40px auto', textAlign: 'center' }}>
-      <Title level={2}>{mode === 'work' ? '🍅 Pomodoro' : '☕ Tanaffus'}</Title>
+    <div className="w-full max-w-md mx-auto px-4 py-6 sm:px-6 lg:px-8 flex flex-col items-center text-center">
+      <Title level={2} className="!mb-6 !text-2xl sm:!text-3xl">
+        {mode === "work" ? "🍅 Pomodoro" : "☕ Tanaffus"}
+      </Title>
 
-      {/* Task tanlash (faqat work) */}
-      {mode === 'work' && (
+      {mode === "work" && (
         <Select
-          style={{ width: '100%', marginBottom: 24 }}
-          placeholder='Vazifani tanlang'
+          className="w-full mb-6"
+          placeholder="Vazifani tanlang"
           value={selected?.id}
           onChange={(id) => setSelected(tasks.find((t) => t.id === id))}
-          dropdownRender={(menu) => (
+          popupRender={(menu) => (
             <>
               {menu}
-              <div style={{ padding: 8, borderTop: '1px solid #f0f0f0' }}>
-                <Button
-                  type='text'
-                  icon={<PlusOutlined />}
-                  onClick={addNewTask}
-                >
+              <div className="p-2 border-t border-gray-200">
+                <Button type="text" icon={<PlusOutlined />} onClick={addNewTask}>
                   Yangi task qo‘shish
                 </Button>
               </div>
@@ -224,35 +284,31 @@ export default function Pomodoro() {
         </Select>
       )}
 
-      {/* Vaqtni sozlash (to‘xtagan holatda) */}
       {!running && seconds === 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <Text>{mode === 'work' ? 'Ish vaqti:' : 'Tanaffus:'}</Text>
+        <div className="mb-4 flex items-center justify-center gap-2 flex-wrap">
+          <Text>{mode === "work" ? "Ish vaqti:" : "Tanaffus:"}</Text>
           <InputNumber
             min={1}
             max={120}
-            value={mode === 'work' ? minutes : breakLen}
+            value={mode === "work" ? minutes : breakLen}
             onChange={(v) => {
-              if (mode === 'work') setMinutes(v || 30)
-              else setBreakLen(v || 5)
+              if (mode === "work") setMinutes(v || DEFAULT.work)
+              else setBreakLen(v || DEFAULT.short)
             }}
-            style={{ marginLeft: 8 }}
           />
-          <span style={{ marginLeft: 4 }}>min</span>
+          <span>min</span>
         </div>
       )}
 
-      {/* Timer */}
-      <Title style={{ fontSize: 80, margin: '24px 0' }}>
-        {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+      <Title className="!text-6xl sm:!text-7xl font-bold !mb-6">
+        {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
       </Title>
 
-      {/* Controls */}
-      <Space size='large'>
+      <Space size="large" className="flex flex-wrap justify-center mb-4">
         {!running ? (
           <Button
-            type='primary'
-            size='large'
+            type="primary"
+            size="large"
             icon={<PlayCircleOutlined />}
             onClick={handleStart}
           >
@@ -260,46 +316,42 @@ export default function Pomodoro() {
           </Button>
         ) : (
           <Button
-            size='large'
+            size="large"
             icon={<PauseCircleOutlined />}
             onClick={handlePause}
           >
             Pauza
           </Button>
         )}
-        <Button size='large' icon={<RedoOutlined />} onClick={handleReset}>
+        <Button size="large" icon={<RedoOutlined />} onClick={handleReset}>
           Qayta
         </Button>
-        <Button size='large' icon={<ArrowRightOutlined />} onClick={handleSkip}>
+        <Button size="large" icon={<ArrowRightOutlined />} onClick={handleSkip}>
           O‘tkazib yuborish
         </Button>
       </Space>
 
-      {/* Tugaganida saqlash */}
-      {seconds === 0 && !running && mode === 'work' && (
-        <div style={{ marginTop: 16 }}>
-          <Button type='dashed' onClick={handleFinish}>
-            Yakunlandi (saqlash)
-          </Button>
-        </div>
+      {seconds === 0 && !running && mode === "work" && (
+        <Button type="dashed" onClick={finishPomodoroSafely} className="mt-2">
+          Yakunlandi (saqlash)
+        </Button>
       )}
 
-      {/* Ant Modal – yangi task qo‘shish */}
       <Modal
-        title='Yangi task qo‘shish'
+        title="Yangi task qo‘shish"
         open={openModal}
         onOk={handleAddOk}
         onCancel={handleAddCancel}
-        okText='Saqlash'
-        cancelText='Bekor qilish'
+        okText="Saqlash"
+        cancelText="Bekor qilish"
       >
-        <Form form={form} layout='vertical'>
+        <Form form={form} layout="vertical">
           <Form.Item
-            name='taskName'
-            label='Task nomi'
-            rules={[{ required: true, message: 'Iltimos nom kiriting' }]}
+            name="taskName"
+            label="Task nomi"
+            rules={[{ required: true, message: "Iltimos nom kiriting" }]}
           >
-            <Input placeholder='Masalan: IELTS writing' />
+            <Input placeholder="Masalan: IELTS writing" />
           </Form.Item>
         </Form>
       </Modal>

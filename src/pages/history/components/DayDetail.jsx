@@ -42,7 +42,6 @@ function DayDetail() {
       const challengesSnap = await getDocs(challengesRef)
 
       const allTasks = []
-
       for (const chDoc of challengesSnap.docs) {
         const chId = chDoc.id
         const chTitle = chDoc.data().title || 'No name'
@@ -85,7 +84,6 @@ function DayDetail() {
 
   const toggleCompleted = async (task) => {
     const newStatus = !task.completed
-    // 1. Optimistik yangilash
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, completed: newStatus } : t))
     )
@@ -100,7 +98,6 @@ function DayDetail() {
         { completed: newStatus }
       )
     } catch (err) {
-      // 2. Xato bo‘lsa rollback
       setTasks((prev) =>
         prev.map((t) =>
           t.id === task.id ? { ...t, completed: !newStatus } : t
@@ -136,68 +133,66 @@ function DayDetail() {
   const progress = totalCount ? (completedCount / totalCount) * 100 : 0
 
   return (
-    <div className='min-h-screen bg-gray-50 custom-scrollbar'>
-      <div className='max-w-4xl mx-auto px-6 py-8'>
-        <Title level={3} className='text-center mb-2'>
+    <div className="history-page custom-scrollbar">
+      <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <Title level={3} className="history-title text-center">
           {selectedDay.format('DD MMMM YYYY')}
         </Title>
 
         {!loading && totalCount > 0 && (
-          <div className='flex justify-center mb-6'>
+          <div className="flex justify-center mb-6">
             <Progress
-              type='dashboard'
+              type="dashboard"
               steps={8}
               percent={Math.round(progress)}
-              trailColor='rgba(0,0,0,0.06)'
+              trailColor="rgba(0,0,0,0.06)"
               strokeWidth={30}
             />
           </div>
         )}
 
         {loading ? (
-          <div className='text-center py-12'>
-            <Spin size='large' />
+          <div className="text-center py-12">
+            <Spin size="large" />
           </div>
         ) : tasks.length ? (
-          <div className='space-y-4'>
+          <div className="space-y-4">
             {tasks.map((t) => (
               <div
                 key={t.id}
                 className={`task-card ${t.completed ? 'completed' : ''}`}
               >
-                <div className='flex items-center space-x-4'>
+                <div className="flex items-center gap-4">
                   <button
                     onClick={() => toggleCompleted(t)}
                     disabled={loadingTaskId === t.id}
-                    className='completion-button'
+                    className="completion-button"
                   >
                     {loadingTaskId === t.id ? (
-                      <Spin size='small' />
+                      <Spin size="small" />
                     ) : t.completed ? (
-                      <MdCheckCircle size={18} />
+                      <MdCheckCircle size={20} />
                     ) : (
-                      <MdRadioButtonUnchecked size={18} />
+                      <MdRadioButtonUnchecked size={20} />
                     )}
                   </button>
-                  <div className='flex-1 min-w-0'>
-                    <Text className='task-name'>{t.taskName}</Text>
-                    <Text className='text-xs text-gray-500'>
-                      {t.challengeTitle}
-                    </Text>
+                  <div className="flex-1 min-w-0">
+                    <Text className="task-name">{t.taskName}</Text>
+                    <Text className="task-challenge">{t.challengeTitle}</Text>
                   </div>
-                  <div className='action-buttons'>
+                  <div className="action-buttons">
                     <Button
-                      type='text'
-                      size='small'
+                      type="text"
+                      size="small"
                       icon={<BiEditAlt size={18} />}
                       onClick={() =>
                         navigate(`/edit-task/${t.challengeId}/${t.id}`)
                       }
                     />
                     <Button
-                      type='text'
+                      type="text"
                       danger
-                      size='small'
+                      size="small"
                       icon={<RiDeleteBin5Line size={18} />}
                       onClick={() => handleDelete(t)}
                     />
@@ -207,8 +202,8 @@ function DayDetail() {
             ))}
           </div>
         ) : (
-          <div className='text-center py-16'>
-            <Text className='text-gray-500'>Ushbu kunda vazifalar yo‘q</Text>
+          <div className="text-center py-16">
+            <Text className="text-gray-500">Ushbu kunda vazifalar yo‘q</Text>
           </div>
         )}
       </div>

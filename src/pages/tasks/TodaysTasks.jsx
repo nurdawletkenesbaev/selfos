@@ -9,7 +9,7 @@ import {
   deleteDoc,
   doc,
   orderBy,
-  Timestamp, // qo'shdik
+  Timestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase/firebase'
 import {
@@ -19,8 +19,8 @@ import {
   Modal,
   Spin,
   Progress,
-  Form,    // qo'shdik
-  Input,   // qo'shdik
+  Form,
+  Input,
 } from 'antd'
 import { RiDeleteBin5Line } from 'react-icons/ri'
 import { MdCheckCircle, MdRadioButtonUnchecked } from 'react-icons/md'
@@ -41,12 +41,10 @@ function TodaysTasks() {
   const [loading, setLoading] = useState(true)
   const [loadingTaskId, setLoadingTaskId] = useState(null)
 
-  // ===== Qo'shilgan state va form =====
   const [openModal, setOpenModal] = useState(false)
   const [editTask, setEditTask] = useState(null)
   const [modalLoading, setModalLoading] = useState(false)
   const [form] = Form.useForm()
-  // ====================================
 
   const fetchTodaysTasks = async (showLoader = true) => {
     if (!userId) return
@@ -131,7 +129,6 @@ function TodaysTasks() {
 
   const toggleCompleted = async (task) => {
     const newStatus = !task.completed
-    // 1. Optimistik yangilash
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, completed: newStatus } : t))
     )
@@ -156,7 +153,6 @@ function TodaysTasks() {
     }
   }
 
-  // Edit modal handlers
   const handleOpenEdit = (task) => {
     setEditTask(task)
     setOpenModal(true)
@@ -164,14 +160,9 @@ function TodaysTasks() {
 
   useEffect(() => {
     if (!openModal) return
-    // agar editTask mavjud bo'lsa formga qiymat qo'yamiz
     if (editTask) {
-      form.setFieldsValue({
-        taskName: editTask.taskName || '',
-      })
-    } else {
-      form.resetFields()
-    }
+      form.setFieldsValue({ taskName: editTask.taskName || '' })
+    } else form.resetFields()
   }, [openModal, editTask, form])
 
   const handleModalOk = async () => {
@@ -181,10 +172,7 @@ function TodaysTasks() {
       setModalLoading(true)
       await updateDoc(
         doc(db, 'users', userId, 'challenges', editTask.challengeId, 'tasks', editTask.id),
-        {
-          taskName: values.taskName,
-          updatedAt: Timestamp.now(),
-        }
+        { taskName: values.taskName, updatedAt: Timestamp.now() }
       )
       message.success('Task yangilandi!')
       fetchTodaysTasks()
@@ -205,19 +193,17 @@ function TodaysTasks() {
     form.resetFields()
   }
 
-  // 🔥 PROGRESS hisoblash
   const completedCount = tasks.filter((t) => t.completed).length
   const totalCount = tasks.length
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
   return (
-    <div className='min-h-screen bg-gray-50 custom-scrollbar'>
-      <div className='max-w-4xl mx-auto px-6 py-8'>
-        <Title level={3} className='text-center mb-4'>
+    <div className='min-h-screen bg-gray-50 px-4 sm:px-6 py-6'>
+      <div className='max-w-2xl mx-auto'>
+        <Title level={4} className='text-center mb-4 text-gray-800'>
           Bugungi vazifalar
         </Title>
 
-        {/* 🔥 Dashboard Progress Bar */}
         {!loading && totalCount > 0 && (
           <div className='flex justify-center mb-6'>
             <Progress
@@ -225,76 +211,74 @@ function TodaysTasks() {
               steps={8}
               percent={Math.round(progress)}
               trailColor='rgba(0, 0, 0, 0.06)'
-              strokeWidth={30}
+              strokeWidth={28}
             />
           </div>
         )}
 
         {loading ? (
-          <div className='text-center py-12'>
+          <div className='flex justify-center py-12'>
             <Spin size='large' />
           </div>
         ) : tasks.length > 0 ? (
-          <div className='space-y-4'>
+          <div className='space-y-3'>
             {tasks.map((task) => (
               <div
                 key={task.id}
-                className={`task-card ${task.completed ? 'completed' : ''}`}
+                className={`flex items-center gap-3 p-4 rounded-xl border shadow-sm bg-white transition-all ${
+                  task.completed ? 'bg-green-50 border-green-200' : 'border-gray-100'
+                }`}
               >
-                <div className='flex items-center space-x-4'>
-                  <button
-                    onClick={() => toggleCompleted(task)}
-                    disabled={loadingTaskId === task.id}
-                    className='completion-button'
-                  >
-                    {loadingTaskId === task.id ? (
-                      <Spin size='small' />
-                    ) : task.completed ? (
-                      <MdCheckCircle size={18} />
-                    ) : (
-                      <MdRadioButtonUnchecked size={18} />
-                    )}
-                  </button>
-                  <div className='flex-1 min-w-0'>
-                    <Text className='task-name'>{task.taskName}</Text>
-                    <Text className='text-xs text-gray-500'>
-                      {task.challengeTitle}
-                    </Text>
-                  </div>
-                  <div className='action-buttons'>
-                    <Button
-                      type='text'
-                      size='small'
-                      onClick={() => handleOpenEdit(task)}
-                      icon={<BiEditAlt size={18} />}
-                    />
-                    <Button
-                      type='text'
-                      size='small'
-                      danger
-                      onClick={() => handleDelete(task)}
-                      icon={<RiDeleteBin5Line size={18} />}
-                    />
-                  </div>
+                <button
+                  onClick={() => toggleCompleted(task)}
+                  disabled={loadingTaskId === task.id}
+                  className='shrink-0 grid place-content-center w-7 h-7 rounded-full bg-white shadow-sm'
+                >
+                  {loadingTaskId === task.id ? (
+                    <Spin size='small' />
+                  ) : task.completed ? (
+                    <MdCheckCircle className='text-green-500' size={20} />
+                  ) : (
+                    <MdRadioButtonUnchecked className='text-gray-400' size={20} />
+                  )}
+                </button>
+
+                <div className='flex-1 min-w-0'>
+                  <p className={`font-medium text-sm ${task.completed ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                    {task.taskName}
+                  </p>
+                  <p className='text-xs text-gray-500 truncate'>{task.challengeTitle}</p>
+                </div>
+
+                <div className='flex items-center gap-2'>
+                  <Button
+                    type='text'
+                    size='small'
+                    icon={<BiEditAlt size={18} />}
+                    onClick={() => handleOpenEdit(task)}
+                    className='text-gray-500 hover:text-blue-600'
+                  />
+                  <Button
+                    type='text'
+                    size='small'
+                    danger
+                    icon={<RiDeleteBin5Line size={18} />}
+                    onClick={() => handleDelete(task)}
+                  />
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className='text-center py-16'>
-            <div className='w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4'>
-              <CgMathPlus size={32} className='text-gray-400' />
+            <div className='w-20 h-20 bg-gray-100 rounded-full grid place-content-center mx-auto mb-4'>
+              <CgMathPlus size={28} className='text-gray-400' />
             </div>
-            <Text className='text-xl font-semibold text-gray-700 mb-2'>
-              Bugungi vazifalar yo‘q
-            </Text>
-            <Text className='text-gray-500'>
-              Challenge sahifasida vazifa qo‘shing!
-            </Text>
+            <Text className='text-lg font-semibold text-gray-700'>Bugungi vazifalar yo‘q</Text>
+            <Text className='text-gray-500 block mt-1'>Challenge sahifasida vazifa qo‘shing!</Text>
           </div>
         )}
 
-        {/* Edit Modal */}
         <Modal
           title='Taskni tahrirlash'
           open={openModal}

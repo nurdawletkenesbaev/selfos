@@ -23,14 +23,13 @@ const pickGrad = (p) =>
     p === 100 ? 0 : p >= 75 ? 1 : p >= 50 ? 2 : p >= 25 ? 3 : p >= 1 ? 4 : 5
   ]
 
-/* --------------  MAIN COMPONENT  -------------- */
 function History() {
   const { currentUser } = useAuth()
   const userId = currentUser?.uid
   const navigate = useNavigate()
-  const [data, setData] = useState({}) // { YYYY-MM-DD : {completed,total} }
+  const [data, setData] = useState({})
 
-  /* ----------  FETCH  ---------- */
+  /* ----------  FETCH DATA  ---------- */
   useEffect(() => {
     if (!userId) return
     ;(async () => {
@@ -85,18 +84,26 @@ function History() {
     )
   }
 
-  /* ----------  NAVIGATE  ---------- */
+  /* ----------  NAVIGATE ---------- */
   const onSelect = (date) =>
     navigate(`/day-detail/${date.format('YYYY-MM-DD')}`)
 
-  /* ----------  RENDER  ---------- */
   return (
     <div className='history-page'>
-      <h1 className='history-title'>Tarix (History)</h1>
+      <Title
+        level={2}
+        style={{
+          textAlign: 'center',
+          marginBottom: '1rem',
+          fontSize: 'clamp(1.5rem, 4vw, 2rem)',
+        }}
+      >
+        Tarix (History)
+      </Title>
 
       <div className='calendar-wrapper'>
         <Calendar
-          dateCellRender={dateCellRender}
+          cellRender={dateCellRender}
           onSelect={onSelect}
           validRange={[dayjs().subtract(12, 'month'), dayjs()]}
           className='glass-calendar'

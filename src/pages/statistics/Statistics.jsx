@@ -1,33 +1,42 @@
-import React, { useEffect, useState } from 'react'
-import { Tabs, Card, Select, Typography, Spin, Progress } from 'antd'
+import React, { useEffect, useState, useMemo } from "react"
+import { Tabs, Card, Select, Typography, Spin, Progress, Tag } from "antd"
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
-} from 'recharts'
-import { collection, onSnapshot, Timestamp } from 'firebase/firestore'
-import { db, auth } from '../../firebase/firebase'
-import dayjs from 'dayjs'
-import isBetween from 'dayjs/plugin/isBetween'
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts"
+import { collection, onSnapshot } from "firebase/firestore"
+import { db, auth } from "../../firebase/firebase"
+import dayjs from "dayjs"
+import isBetween from "dayjs/plugin/isBetween"
+
 dayjs.extend(isBetween)
 
 const { Title, Text } = Typography
 const { Option } = Select
 const { TabPane } = Tabs
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
+const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"]
 
 export default function Statistics() {
   const uid = auth.currentUser?.uid
   const [loading, setLoading] = useState(true)
-  const [raw, setRaw] = useState([])          // bitta pomodorolar
-  const [tasks, setTasks] = useState([])     // tasklar (id, taskName, counter)
-  const [range, setRange] = useState('week') // week | month | all
+  const [raw, setRaw] = useState([]) // pomodorolar
+  const [tasks, setTasks] = useState([]) // tasklar
+  const [range, setRange] = useState("week") // week | month | day | all
 
-  /* ----------------------- data ----------------------- */
+  /* ----------------------- Firestore listener ----------------------- */
   useEffect(() => {
     if (!uid) return
-    // 1) pomodorolar
-    const unsub = onSnapshot(
-      collection(db, 'users', uid, 'pomodoros'),
+
+    const unsubPomodoro = onSnapshot(
+      collection(db, "users", uid, "pomodoro"),
       (snap) => {
         const arr = []
         snap.forEach((d) => arr.push({ id: d.id, ...d.data() }))
@@ -35,64 +44,111 @@ export default function Statistics() {
         setLoading(false)
       }
     )
-    // 2) tasklar
-    const unsub2 = onSnapshot(
-      collection(db, 'users', uid, 'pomodorTasks'),
+
+    const unsubTasks = onSnapshot(
+      collection(db, "users", uid, "pomodorTasks"),
       (snap) => {
         const t = []
         snap.forEach((d) => t.push({ id: d.id, ...d.data() }))
         setTasks(t)
       }
     )
-    return () => { unsub(); unsub2() }
+
+    return () => {
+      unsubPomodoro()
+      unsubTasks()
+    }
   }, [uid])
 
-  /* ----------------------- helpers ----------------------- */
-  const filterDate = (d) => {
-    const r = dayjs(d.startTime?.toDate ? d.startTime.toDate() : d.startTime)
-    const now = dayjs()
-    if (range === 'week') return r.isAfter(now.subtract(7, 'day'))
-    if (range === 'month') return r.isAfter(now.subtract(1, 'month'))
-    return true // all
-  }
-  const filtered = raw.filter(filterDate)
+  /* ----------------------- Filtering ----------------------- */
+  const now = dayjs()
+  const filtered = useMemo(() => {
+    return raw.filter((p) => {
+      const start = p.startTime?.toDate ? dayjs(p.startTime.toDate()) : dayjs()
+      if (range === "day") return start.isAfter(now.startOf("day"))
+      if (range === "week") return start.isAfter(now.subtract(7, "day"))
+      if (range === "month") return start.isAfter(now.subtract(1, "month"))
+      return true
+    })
+  }, [raw, range])
 
-  /* kunlik grafiga */
+  // oldingi davrni hisoblash (taqqoslash uchun)
+  const prevData = useMemo(() => {
+    return raw.filter((p) => {
+      const start = p.startTime?.toDate ? dayjs(p.startTime.toDate()) : dayjs()
+      if (range === "day")
+        return start.isBetween(
+          now.subtract(1, "day").startOf("day"),
+          now.subtract(1, "day").endOf("day")
+        )
+      if (range === "week")
+        return start.isBetween(now.subtract(14, "day"), now.subtract(7, "day"))
+      if (range === "month")
+        return start.isBetween(
+          now.subtract(2, "month"),
+          now.subtract(1, "month")
+        )
+      return []
+    })
+  }, [raw, range])
+
+  /* ----------------------- Aggregations ----------------------- */
+  const totalCur = useMemo(() => {
+    return filtered.reduce((s, p) => s + (p.actualFocusMinutes || 0), 0)
+  }, [filtered])
+
+  const totalPrev = useMemo(() => {
+    return prevData.reduce((s, p) => s + (p.actualFocusMinutes || 0), 0)
+  }, [prevData])
+
+  const diff = totalCur - totalPrev
+  const percentChange =
+    totalPrev === 0 ? 100 : Math.round((diff / totalPrev) * 100)
+
+  /* ----------------------- Daily Chart ----------------------- */
   const dailyMap = filtered.reduce((acc, p) => {
-    const d = dayjs(p.startTime?.toDate()).format('DD/MM')
+    const d = dayjs(p.startTime?.toDate()).format("DD/MM")
     if (!acc[d]) acc[d] = 0
-    acc[d] += 1
+    acc[d] += p.actualFocusMinutes || 0
     return acc
   }, {})
-  const dailyChart = Object.entries(dailyMap).map(([date, count]) => ({ date, count }))
 
-  /* task bo‘yicha */
+  const dailyChart = Object.entries(dailyMap).map(([date, minutes]) => ({
+    date,
+    minutes,
+  }))
+
+  /* ----------------------- Task Chart ----------------------- */
   const taskStat = tasks
     .map((t) => ({
       name: t.taskName,
-      value: filtered.filter((p) => p.taskId === t.id).length
+      value: filtered
+        .filter((p) => p.taskId === t.id)
+        .reduce((s, p) => s + (p.actualFocusMinutes || 0), 0),
     }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 5)
 
-  /* umumiy */
-  const total = filtered.length
-  const completed = filtered.filter((p) => p.status === 'completed').length
-  const skipped = filtered.filter((p) => p.status === 'skipped').length
-  const focusMinutes = filtered
-    .filter((p) => p.status === 'completed')
-    .reduce((s, p) => s + (p.actualFocusMinutes || 0), 0)
+  /* ----------------------- Counts ----------------------- */
+  const completed = filtered.filter((p) => p.status === "completed").length
+  const skipped = filtered.filter((p) => p.status === "skipped").length
 
-  /* ----------------------- UI ----------------------- */
-  if (loading) return <Spin size="large" style={{ display: 'block', textAlign: 'center', marginTop: 60 }} />
+  if (loading)
+    return (
+      <Spin
+        size="large"
+        style={{ display: "block", textAlign: "center", marginTop: 60 }}
+      />
+    )
 
   return (
-    <div style={{ maxWidth: 900, margin: '24px auto', padding: 16 }}>
-      <Title level={2}>📊 Statistika</Title>
+    <div style={{ maxWidth: 900, margin: "24px auto", padding: 16 }}>
+      <Title level={2}>📊 Pomodoro Statistika</Title>
 
       {/* Oraliq tanlash */}
-      <div style={{ marginBottom: 24, textAlign: 'right' }}>
-        <Select value={range} onChange={setRange} style={{ width: 120 }}>
+      <div style={{ marginBottom: 24, textAlign: "right" }}>
+        <Select value={range} onChange={setRange} style={{ width: 140 }}>
+          <Option value="day">Kun</Option>
           <Option value="week">Hafta</Option>
           <Option value="month">Oy</Option>
           <Option value="all">Hammasi</Option>
@@ -100,34 +156,50 @@ export default function Statistics() {
       </div>
 
       {/* Kartalar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 16,
+          marginBottom: 32,
+        }}
+      >
         <Card>
-          <Text type="secondary">Jami pomodoro</Text>
-          <Title level={2} style={{ margin: 0 }}>{total}</Title>
+          <Text type="secondary">Umumiy fokus</Text>
+          <Title level={3} style={{ margin: 0 }}>
+            {Math.round(totalCur)} min
+          </Title>
+          {range !== "all" && (
+            <Tag color={diff >= 0 ? "green" : "red"} style={{ marginTop: 8 }}>
+              {diff >= 0 ? "+" : ""}
+              {percentChange}%{" "}
+              {diff >= 0 ? "ko‘proq" : "kamroq"} {range}ga nisbatan
+            </Tag>
+          )}
         </Card>
         <Card>
           <Text type="secondary">Tugallangan</Text>
-          <Title level={2} style={{ margin: 0, color: '#10b981' }}>{completed}</Title>
+          <Title level={3} style={{ margin: 0, color: "#10b981" }}>
+            {completed}
+          </Title>
         </Card>
         <Card>
           <Text type="secondary">O‘tkazib yuborilgan</Text>
-          <Title level={2} style={{ margin: 0, color: '#f59e0b' }}>{skipped}</Title>
-        </Card>
-        <Card>
-          <Text type="secondary">Jami focus (min)</Text>
-          <Title level={2} style={{ margin: 0 }}>{Math.round(focusMinutes)}</Title>
+          <Title level={3} style={{ margin: 0, color: "#f59e0b" }}>
+            {skipped}
+          </Title>
         </Card>
       </div>
 
       {/* Grafiklar */}
       <Tabs defaultActiveKey="1">
-        <TabPane tab="Kunlik" key="1">
+        <TabPane tab="Kunlik minutlar" key="1">
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={dailyChart}>
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Tooltip formatter={(v) => `${v} min`} />
+              <Bar dataKey="minutes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </TabPane>
@@ -142,13 +214,13 @@ export default function Statistics() {
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
-                label
+                label={(entry) => `${entry.name}: ${entry.value}m`}
               >
                 {taskStat.map((_, i) => (
                   <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(v) => `${v} min`} />
             </PieChart>
           </ResponsiveContainer>
         </TabPane>
