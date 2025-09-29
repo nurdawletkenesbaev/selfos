@@ -9,20 +9,27 @@ import {
   MenuOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button, Drawer, Layout, Menu } from 'antd'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 const { Sider } = Layout
 
 const Sidebar = () => {
   const [visible, setVisible] = useState(false)
-  const isMobile = window.innerWidth < 768
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  const location = useLocation()
 
-  // Menu elementlari (har bir Link bosilganda Drawer yopiladi)
+  // Ekran o'lchami o'zgarganda qayta render bo'lishi
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const list = [
     {
-      key: '1',
+      key: '/goals',
       icon: <DashboardOutlined />,
       label: (
         <Link onClick={() => setVisible(false)} to='/goals'>
@@ -31,7 +38,7 @@ const Sidebar = () => {
       ),
     },
     {
-      key: '2',
+      key: '/todays-tasks',
       icon: <CheckSquareOutlined />,
       label: (
         <Link onClick={() => setVisible(false)} to='/todays-tasks'>
@@ -40,7 +47,7 @@ const Sidebar = () => {
       ),
     },
     {
-      key: '3',
+      key: '/challenges',
       icon: <BiTask />,
       label: (
         <Link onClick={() => setVisible(false)} to='/challenges'>
@@ -49,7 +56,7 @@ const Sidebar = () => {
       ),
     },
     {
-      key: '4',
+      key: '/history',
       icon: <CalendarOutlined />,
       label: (
         <Link onClick={() => setVisible(false)} to='/history'>
@@ -58,7 +65,7 @@ const Sidebar = () => {
       ),
     },
     {
-      key: '5',
+      key: '/statistics',
       icon: <BarChartOutlined />,
       label: (
         <Link onClick={() => setVisible(false)} to='/statistics'>
@@ -67,7 +74,7 @@ const Sidebar = () => {
       ),
     },
     {
-      key: '6',
+      key: '/pomodoro-timer',
       icon: <ClockCircleOutlined />,
       label: (
         <Link onClick={() => setVisible(false)} to='/pomodoro-timer'>
@@ -76,7 +83,7 @@ const Sidebar = () => {
       ),
     },
     {
-      key: '7',
+      key: '/settings',
       icon: <SettingOutlined />,
       label: (
         <Link onClick={() => setVisible(false)} to='/settings'>
@@ -85,7 +92,7 @@ const Sidebar = () => {
       ),
     },
     {
-      key: '8',
+      key: '/about-app',
       icon: <InfoCircleOutlined />,
       label: (
         <Link onClick={() => setVisible(false)} to='/about-app'>
@@ -101,14 +108,17 @@ const Sidebar = () => {
         <div className='bg-[#001529]'>
           {/* Mobil versiya button */}
           <Button
-            type='primary'
+            type='text'
             icon={<MenuOutlined />}
             onClick={() => setVisible(true)}
             style={{
               position: 'fixed',
               top: 18,
-              right: 90,
+              right: 86,
               zIndex: 1000,
+              color: '#fff',
+              backgroundColor: 'transparent',
+              color: '#4096ff',
             }}
           />
           {/* Drawer ochiladi */}
@@ -119,7 +129,11 @@ const Sidebar = () => {
             open={visible}
             bodyStyle={{ padding: 0 }}
           >
-            <Menu mode='inline' items={list} />
+            <Menu
+              mode='inline'
+              selectedKeys={[location.pathname]} // active bo'lgan sahifa highlight bo'ladi
+              items={list}
+            />
           </Drawer>
         </div>
       ) : (
@@ -132,13 +146,12 @@ const Sidebar = () => {
               background: 'rgba(255, 255, 255, 0.3)',
             }}
           >
-            {/* Logo yoki ilova nomi */}
-            {/* Just do it! */}
+            Just do it!
           </div>
           <Menu
             theme='dark'
             mode='inline'
-            defaultSelectedKeys={['1']}
+            selectedKeys={[location.pathname]}
             items={list}
           />
         </Sider>

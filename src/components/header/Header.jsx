@@ -20,7 +20,7 @@ const Header = () => {
         </Badge>
         <Popover content={content} trigger='hover' placement='bottom'>
           <Avatar
-            icon={<UserOutlined style={{ color: '#4096ff' }} />}
+            icon={<UserOutlined style={{ color: '#' }} />}
             style={{
               cursor: 'pointer',
               borderColor: '#4096ff',
