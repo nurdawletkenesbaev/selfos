@@ -101,7 +101,7 @@ const Sidebar = () => {
         <div className='bg-[#001529]'>
           {/* Mobil versiya button */}
           <Button
-            type='outlined'
+            type='primary'
             icon={<MenuOutlined />}
             onClick={() => setVisible(true)}
             style={{
@@ -109,7 +109,6 @@ const Sidebar = () => {
               top: 18,
               right: 90,
               zIndex: 1000,
-              color: '#4096ff',
             }}
           />
           {/* Drawer ochiladi */}
