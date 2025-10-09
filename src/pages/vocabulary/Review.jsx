@@ -39,7 +39,8 @@ const Review = ({ userId }) => {
     const newDay = correct ? (w.currentDay || 0) + 1 : 1
     const nextDays = INTERVALS[Math.min(newDay, INTERVALS.length - 1)]
     const nextDate = new Date()
-    nextDate.setHours(0, 0, 0, 0) // ← bugun 00:00
+nextDate.setDate(nextDate.getDate() + 1) // ← ertaga
+nextDate.setHours(0, 0, 0, 0)            // ← ertaga 00:00DF
 
     await updateDoc(doc(db, 'users', userId, 'words', w.id), {
       currentDay: newDay,
