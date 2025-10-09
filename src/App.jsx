@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
-  Navigate,
-  Route,
-  BrowserRouter as Router,
-  Routes,
+  Navigate, Route, BrowserRouter as Router, Routes,
 } from 'react-router-dom'
 import './App.css'
 import Home from './pages/home/Home'
@@ -27,59 +24,39 @@ import Challenges from './pages/challenges/challenges'
 import { useAuth } from './firebase/AuthContext'
 import DayDetail from './pages/history/components/DayDetail'
 
+// Yangi sahifalar
+import Review from './pages/vocabulary/Review'
+import Vocabulary from './pages/vocabulary/Vocabulary'
+
 const App = () => {
   const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(true)
   const { currentUser } = useAuth()
 
   useEffect(() => {
-    // faqat bitta marta auth kuzatamiz
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUserId(user.uid) // 🔑 user uid
-      } else {
-        setUserId(null)
-      }
+      if (user) setUserId(user.uid)
+      else setUserId(null)
       setLoading(false)
     })
-
     return () => unsubscribe()
   }, [])
 
-  // 🔽 bu qismlar renderda
-  if (loading) {
-    return <Loading />
-  }
-
-  if (!userId) {
-    ;<SignUp />
-  }
+  if (loading) return <Loading />
 
   return (
     <Router>
       <Routes>
-        <Route
-          path='/signup'
-          element={!userId ? <SignUp /> : <Navigate to='/' />}
-        />
-        <Route
-          path='/signin'
-          element={!userId ? <SignIn /> : <Navigate to='/' />}
-        />
-        <Route
-          path='/forgotpassword'
-          element={!userId ? <ForgotPassword /> : <Navigate to='/' />}
-        />
+        {/* Auth yo‘llari */}
+        <Route path='/signup' element={!userId ? <SignUp /> : <Navigate to='/home' />} />
+        <Route path='/signin' element={!userId ? <SignIn /> : <Navigate to='/home' />} />
+        <Route path='/forgotpassword' element={!userId ? <ForgotPassword /> : <Navigate to='/home' />} />
 
-        <Route
-          path='/'
-          element={userId ? <MainLayout /> : <Navigate to='/signup' />}
-        >
+        {/* Asosiy layout */}
+        <Route path='/' element={userId ? <MainLayout /> : <Navigate to='/signin' />}>
+          <Route index element={<Navigate to='/home' />} />
           <Route path='/home' element={<Home />} />
-          <Route
-            path='/todays-tasks'
-            element={<TodaysTasks userId={currentUser?.uid} />}
-          />
+          <Route path='/todays-tasks' element={<TodaysTasks userId={currentUser?.uid} />} />
           <Route path='/pomodoro-timer' element={<Pomodoro />} />
           <Route path='/history' element={<History />} />
           <Route path='/day-detail/:date' element={<DayDetail />} />
@@ -88,17 +65,18 @@ const App = () => {
           <Route path='/about-app' element={<AboutApp />} />
           <Route path='/settings' element={<Settings />} />
 
-          {/* Challenges qismi */}
+          {/* Challenges */}
           <Route path='/challenges' element={<Challenges userId={userId} />} />
-          <Route
-            path='/challenges/create'
-            element={<CreateChallenge userId={userId} />}
-          />
-          <Route
-            path='/challenges/:challengeId'
-            element={<ChallengeDetail userId={userId} />}
-          />
+          <Route path='/challenges/create' element={<CreateChallenge userId={userId} />} />
+          <Route path='/challenges/:challengeId' element={<ChallengeDetail userId={userId} />} />
+
+          {/* Vocabulary (spaced repetition) */}
+          <Route path='/vocabulary' element={<Vocabulary userId={userId} />} />
+          <Route path='/vocabulary/review' element={<Review userId={userId} />} />
         </Route>
+
+        {/* 404 → home */}
+        <Route path='*' element={<Navigate to='/home' />} />
       </Routes>
     </Router>
   )

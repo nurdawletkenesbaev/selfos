@@ -8,6 +8,7 @@ import {
   InfoCircleOutlined,
   MenuOutlined,
   SettingOutlined,
+  BookOutlined,          // ← Vocabulary uchun
 } from '@ant-design/icons'
 import React, { useState, useEffect } from 'react'
 import { Button, Drawer, Layout, Menu } from 'antd'
@@ -20,7 +21,6 @@ const Sidebar = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const location = useLocation()
 
-  // Ekran o'lchami o'zgarganda qayta render bo'lishi
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handleResize)
@@ -43,6 +43,15 @@ const Sidebar = () => {
       label: (
         <Link onClick={() => setVisible(false)} to='/todays-tasks'>
           Today's tasks
+        </Link>
+      ),
+    },
+    {
+      key: '/vocabulary',              // ← YANGI
+      icon: <BookOutlined />,
+      label: (
+        <Link onClick={() => setVisible(false)} to='/vocabulary'>
+          Vocabulary
         </Link>
       ),
     },
@@ -106,7 +115,6 @@ const Sidebar = () => {
     <>
       {isMobile ? (
         <div className='bg-[#001529]'>
-          {/* Mobil versiya button */}
           <Button
             type='text'
             icon={<MenuOutlined />}
@@ -116,12 +124,9 @@ const Sidebar = () => {
               top: 18,
               right: 86,
               zIndex: 1000,
-              color: '#fff',
-              backgroundColor: 'transparent',
               color: '#4096ff',
             }}
           />
-          {/* Drawer ochiladi */}
           <Drawer
             title='Menu'
             placement='left'
@@ -131,7 +136,7 @@ const Sidebar = () => {
           >
             <Menu
               mode='inline'
-              selectedKeys={[location.pathname]} // active bo'lgan sahifa highlight bo'ladi
+              selectedKeys={[location.pathname]}
               items={list}
             />
           </Drawer>
@@ -140,11 +145,7 @@ const Sidebar = () => {
         <Sider collapsible>
           <div
             className='text-center items-center flex justify-center text-white border-[1px] border-[#4096ff] rounded-sm'
-            style={{
-              height: 32,
-              margin: 16,
-              background: 'rgba(255, 255, 255, 0.3)',
-            }}
+            style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.3)' }}
           >
             Just do it!
           </div>
