@@ -1,14 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import {
-  Card,
-  Progress,
-  Row,
-  Col,
-  Typography,
-  Grid,
-  Tag,
-  Statistic,
-} from 'antd'
+import { Card, Progress, Row, Col, Typography, Grid, Statistic } from 'antd'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../../firebase/firebase'
 import {
@@ -26,7 +17,6 @@ const Statistics = ({ userId }) => {
   const [masteredCount, setMasteredCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  // Spaced repetition interval kunlari (Review bilan bir xil)
   const INTERVALS = [1, 2, 3, 4, 7, 10, 14, 21, 30]
 
   useEffect(() => {
@@ -35,14 +25,11 @@ const Statistics = ({ userId }) => {
       const snap = await getDocs(collection(db, 'users', userId, 'words'))
       const map = {}
       let mastered = 0
-      let total = 0
 
       snap.docs.forEach((d) => {
         const wordData = d.data()
         const cd = wordData.currentDay || 0
-        total++
 
-        // Agar INTERVALS dan oshsa yoki mastered=true → ustalgan
         if (cd >= INTERVALS.length || wordData.mastered) {
           mastered++
         } else {
@@ -50,7 +37,6 @@ const Statistics = ({ userId }) => {
         }
       })
 
-      // INTERVALS uzunligicha chart (Day 0..8)
       const chart = INTERVALS.map((interval, index) => ({
         day: `Day ${index}`,
         interval: interval,
@@ -68,7 +54,6 @@ const Statistics = ({ userId }) => {
   const totalLearning = data.reduce((sum, d) => sum + d.count, 0)
   const totalWords = totalLearning + masteredCount
 
-  // Foiz hisoblash
   const masteredPercent =
     totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0
 
@@ -78,14 +63,20 @@ const Statistics = ({ userId }) => {
     )
 
   return (
-    <div style={{ padding: screens.xs ? 8 : 24 }}>
-      <Title level={4} style={{ textAlign: 'center' }}>
+    <div
+      style={{
+        padding: screens.xs ? 12 : 24,
+        maxWidth: 1200,
+        margin: '0 auto',
+      }}
+    >
+      <Title level={4} style={{ textAlign: 'center', marginBottom: 24 }}>
         📊 Statistika
       </Title>
 
       {/* Umumiy statistika */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={8}>
+        <Col xs={8} md={8}>
           <Card>
             <Statistic
               title="Jami so'zlar"
@@ -95,7 +86,7 @@ const Statistics = ({ userId }) => {
             />
           </Card>
         </Col>
-        <Col xs={8}>
+        <Col xs={8} md={8}>
           <Card>
             <Statistic
               title='Jarayonda'
@@ -105,7 +96,7 @@ const Statistics = ({ userId }) => {
             />
           </Card>
         </Col>
-        <Col xs={8}>
+        <Col xs={8} md={8}>
           <Card>
             <Statistic
               title='Ustagan'
@@ -118,14 +109,14 @@ const Statistics = ({ userId }) => {
         </Col>
       </Row>
 
-      {/* Jarayondagi so'zlar */}
+      {/* Interval bo'yicha so'zlar */}
       <Title level={5} style={{ marginBottom: 16 }}>
         📚 Interval bo'yicha so'zlar
       </Title>
 
       <Row gutter={[8, 8]}>
         {data.map((d) => (
-          <Col key={d.day} xs={12} sm={8} md={6} lg={4}>
+          <Col key={d.day} xs={8} sm={6} md={4} lg={3}>
             <Card
               size='small'
               hoverable
@@ -135,12 +126,12 @@ const Statistics = ({ userId }) => {
               }}
             >
               <div style={{ textAlign: 'center', marginBottom: 4 }}>
-                <strong style={{ fontSize: 16 }}>{d.day}</strong>
+                <strong>{d.day}</strong>
               </div>
               <div
                 style={{
                   textAlign: 'center',
-                  fontSize: 11,
+                  fontSize: 12,
                   color: '#8c8c8c',
                   marginBottom: 8,
                 }}
@@ -160,8 +151,8 @@ const Statistics = ({ userId }) => {
           </Col>
         ))}
 
-        {/* Ustalgan so'zlar kartasi */}
-        <Col xs={12} sm={8} md={6} lg={4}>
+        {/* Ustalgan so'zlar */}
+        <Col xs={8} sm={6} md={4} lg={3}>
           <Card
             size='small'
             hoverable
@@ -172,14 +163,12 @@ const Statistics = ({ userId }) => {
             }}
           >
             <div style={{ textAlign: 'center', marginBottom: 4 }}>
-              <strong style={{ fontSize: 16, color: '#52c41a' }}>
-                ✅ Day 9+
-              </strong>
+              <strong style={{ color: '#52c41a' }}>✅ Day 9+</strong>
             </div>
             <div
               style={{
                 textAlign: 'center',
-                fontSize: 11,
+                fontSize: 12,
                 color: '#8c8c8c',
                 marginBottom: 8,
               }}
@@ -211,7 +200,7 @@ const Statistics = ({ userId }) => {
           format={(percent) => `${percent}% ustalgan`}
         />
         <div style={{ marginTop: 8, fontSize: 12, color: '#8c8c8c' }}>
-          {masteredCount} ta so'z to'liq ustalgan, {totalLearning} ta so'z
+          {masteredCount} ta so'z to'liq o'rganilgan, {totalLearning} ta so'z
           o'rganilmoqda
         </div>
       </Card>
